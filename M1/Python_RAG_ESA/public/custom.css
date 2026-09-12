@@ -1,0 +1,461 @@
+/* =============================================================
+   Custom CSS — Chatbot Master ESA (v4 — basé sur les vrais sélecteurs)
+   Chainlit utilise shadcn/ui + Tailwind, donc on override les
+   variables CSS racine pour que tout suive automatiquement.
+   ============================================================= */
+
+/* === Palette du master === */
+:root {
+  --esa-navy: #1a2e4f;
+  --esa-navy-dark: #0f1d35;
+  --esa-navy-light: #3a5278;
+  --esa-accent-cyan: #3aa9d6;
+
+  /* OVERRIDE des variables shadcn/ui en HSL bleu marine */
+  /* Format HSL : H S% L%  →  #1a2e4f ≈ 217 50% 21% */
+  --primary: 217 50% 21% !important;
+  --primary-foreground: 0 0% 100% !important;
+  --ring: 217 50% 21% !important;
+}
+
+/* === Masquer le bouton de bascule dark/light === */
+button[aria-label*="theme" i],
+button[aria-label*="thème" i],
+button[aria-label*="mode" i],
+button[aria-label*="dark" i],
+button[aria-label*="light" i],
+button[data-testid*="theme" i],
+[data-test*="theme"] {
+  display: none !important;
+}
+
+/* === Mode clair / sombre : on les laisse coexister, chacun stylisé === */
+
+/* ============================================================
+   ZONE DE SAISIE — fond bleu marine, textarea transparent texte blanc
+   ============================================================ */
+
+/* Le cadre visuel autour du textarea (niveau 2 dans le DOM) */
+div.bg-accent.rounded-3xl,
+div.bg-card.rounded-3xl,
+.rounded-3xl.min-h-24 {
+  background: #1a2e4f !important;
+  border: 1px solid #0f1d35 !important;
+  box-shadow: 0 4px 12px rgba(26, 46, 79, 0.2) !important;
+}
+
+/* Le textarea lui-même : transparent, texte gris bleuté clair */
+#chat-input,
+textarea#chat-input {
+  background: transparent !important;
+  color: #e8edf3 !important;
+  caret-color: #e8edf3 !important;
+}
+
+#chat-input::placeholder,
+textarea#chat-input::placeholder {
+  color: rgba(232, 237, 243, 0.6) !important;
+}
+
+#chat-input:focus,
+textarea#chat-input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Les boutons à côté du textarea (dans le cadre bleu) : icônes en clair */
+div.bg-accent.rounded-3xl button,
+div.bg-card.rounded-3xl button,
+.rounded-3xl.min-h-24 button {
+  color: #e8edf3 !important;
+}
+
+div.bg-accent.rounded-3xl button svg,
+div.bg-card.rounded-3xl button svg,
+.rounded-3xl.min-h-24 button svg {
+  color: #e8edf3 !important;
+  stroke: #e8edf3 !important;
+}
+
+/* La flèche d'envoi spécifiquement (fond gris bleuté clair, icône bleu marine) */
+.rounded-3xl.min-h-24 button[type="submit"],
+.rounded-3xl.min-h-24 button[aria-label*="send" i],
+.rounded-3xl.min-h-24 button[aria-label*="Send" i],
+.rounded-3xl.min-h-24 button:last-child {
+  background: #e8edf3 !important;
+  border-radius: 50% !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.rounded-3xl.min-h-24 button[type="submit"] svg,
+.rounded-3xl.min-h-24 button[aria-label*="send" i] svg,
+.rounded-3xl.min-h-24 button[aria-label*="Send" i] svg,
+.rounded-3xl.min-h-24 button:last-child svg {
+  color: #1a2e4f !important;
+  stroke: #1a2e4f !important;
+  fill: #1a2e4f !important;
+}
+
+/* ============================================================
+   LOGO + TITRE "ESA IA" dans la barre du haut
+   Injection via pseudo-element sur le body (visible en permanence)
+   ============================================================ */
+
+body {
+  position: relative;
+}
+
+/* Bandeau de fond pour la barre du haut */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background: #e8edf3;   /* bleu marine très clair tirant sur le gris */
+  border-bottom: 1px solid #d4dce6;
+  z-index: 50;     /* au-dessus du contenu, mais sous les boutons natifs (z-index plus élevés) */
+  pointer-events: none;
+}
+
+/* Forcer le conteneur des boutons natifs (nouvelle discussion, lisez-moi, bascule thème)
+   à être AU-DESSUS du bandeau pour qu'ils restent cliquables et visibles */
+.p-3.flex.h-\[60px\] {
+  z-index: 100 !important;
+}
+
+/* Logo sur le bandeau (élément séparé) */
+body > div::before,
+body::after {
+  z-index: 9999 !important;
+}
+
+/* On utilise un élément différent pour le logo : le ::before était pris par le bandeau */
+#root::before {
+  content: "";
+  position: fixed;
+  top: 8px;
+  left: 70px;       /* après l'icône "nouvelle discussion" */
+  width: 200px;
+  height: 50px;
+  background-image: url('/public/logo_light.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: left center;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+body::after {
+  content: "ESA IA";
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);   /* centrage horizontal parfait */
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a2e4f;
+  letter-spacing: 2px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* ============================================================
+   BULLES DE MESSAGES
+   - bulle utilisateur (cadre arrondi) en couleur du bandeau
+   - message bot transparent (texte simple sur fond général)
+   ============================================================ */
+
+/* === MODE CLAIR === */
+/* Bulle du message UTILISATEUR : fond bleu marine, texte gris bleuté clair (mêmes couleurs que la zone de saisie) */
+[data-step-type="user_message"] .bg-accent.rounded-3xl,
+[data-step-type="user_message"] [class*="rounded-3xl"][class*="max-w-"] {
+  background: #1a2e4f !important;
+  color: #e8edf3 !important;
+  border: 1px solid #0f1d35 !important;
+}
+
+[data-step-type="user_message"] .bg-accent.rounded-3xl *,
+[data-step-type="user_message"] [class*="rounded-3xl"][class*="max-w-"] * {
+  color: #e8edf3 !important;
+}
+
+
+/* ============================================================
+   BOUTONS D'ACTIONS THÉMATIQUES (Présentation, Débouchés, etc.)
+   ============================================================ */
+
+button[data-test^="action-"],
+[class*="action"] button.MuiButton-outlined,
+button.action-button {
+  background: white !important;
+  border: 1.5px solid #1a2e4f !important;
+  color: #1a2e4f !important;
+  font-weight: 500 !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  transition: all 0.2s ease !important;
+}
+
+button[data-test^="action-"]:hover,
+[class*="action"] button.MuiButton-outlined:hover,
+button.action-button:hover {
+  background: #1a2e4f !important;
+  color: white !important;
+  transform: translateY(-1px);
+}
+
+button[data-test^="action-"]:hover *,
+[class*="action"] button.MuiButton-outlined:hover * {
+  color: white !important;
+}
+
+/* === Liens === */
+a {
+  color: #1a2e4f !important;
+  text-decoration: underline !important;
+  text-decoration-color: #3aa9d6 !important;
+  text-underline-offset: 2px !important;
+}
+
+a:hover {
+  color: #3aa9d6 !important;
+}
+
+/* === Avatar du bot — remplacement par logo bouclier ESA === */
+
+/* Masquer l'avatar natif Chainlit (le losange rose/coloré) */
+img[alt="Avatar for Assistant Master ESA"] {
+  opacity: 0 !important;
+  width: 48px !important;
+  height: 48px !important;
+  position: relative !important;
+}
+
+/* Fallback : via le conteneur parent */
+:has(> img[alt="Avatar for Assistant Master ESA"]) {
+  position: relative !important;
+  width: 48px !important;
+  height: 48px !important;
+  overflow: visible !important;
+}
+
+:has(> img[alt="Avatar for Assistant Master ESA"])::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 48px !important;
+  height: 48px !important;
+  background-image: url('/public/avatar_light.png') !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  z-index: 10 !important;
+}
+
+/* Mode sombre : utiliser avatar_dark.png */
+.dark :has(> img[alt="Avatar for Assistant Master ESA"])::before {
+  background-image: url('/public/avatar_dark.png') !important;
+}
+
+/* === Masquer les avatars des messages annexes (sources + feedback) ===
+   Ces messages ont un auteur dédié (ESA_Sources / ESA_Feedback) pour qu'on
+   puisse les cibler ici. On masque l'avatar ET on retire l'espace réservé. */
+img[alt="Avatar for ESA_Sources"],
+img[alt="Avatar for ESA_Feedback"] {
+  display: none !important;
+}
+
+:has(> img[alt="Avatar for ESA_Sources"]),
+:has(> img[alt="Avatar for ESA_Feedback"]) {
+  display: none !important;
+}
+
+/* === Scrollbar === */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(26, 46, 79, 0.2); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(26, 46, 79, 0.4); }
+
+
+/* ============================================================
+   ===          THÈME SOMBRE — inverse du thème clair       ===
+   ============================================================
+   - Fond général : bleu marine #1a2e4f
+   - Bandeau du haut : plus sombre #0f1d35
+   - Zone de saisie : INVERSÉE (blanche, texte bleu marine)
+   - Textes : blanc / gris clair
+   ============================================================ */
+
+/* === Fond général === */
+html.dark, body.dark, .dark, .dark body, .dark #root {
+  background-color: #1a2e4f !important;
+  color: white !important;
+}
+
+/* === Bandeau du haut en bleu marine très sombre === */
+.dark body::before {
+  background: #0a1424 !important;
+  border-bottom: 1px solid #1a2e4f !important;
+}
+
+/* === Texte "ESA IA" en mode sombre === */
+.dark body::after {
+  color: #9aa6bb !important;
+}
+
+/* === Logo : utiliser logo_dark.png en dark mode === */
+.dark #root::before {
+  background-image: url('/public/logo_dark.png') !important;
+}
+
+/* === Titres en blanc === */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: white !important;
+}
+
+/* === Textes généraux en clair === */
+.dark p, .dark span, .dark li, .dark div {
+  color: inherit;
+}
+
+.dark {
+  --primary: 0 0% 100% !important;        /* primary devient blanc en dark */
+  --primary-foreground: 217 50% 21% !important;
+}
+
+/* === Bulles de messages en mode sombre === */
+
+/* Message utilisateur : fond bleu marine très sombre, texte gris bleuté clair (mêmes couleurs que la zone de saisie) */
+.dark [data-step-type="user_message"] .bg-accent.rounded-3xl,
+.dark [data-step-type="user_message"] [class*="rounded-3xl"][class*="max-w-"] {
+  background: #0a1424 !important;
+  color: #e8edf3 !important;
+  border: 1px solid #1a2e4f !important;
+}
+
+.dark [data-step-type="user_message"] .bg-accent.rounded-3xl *,
+.dark [data-step-type="user_message"] [class*="rounded-3xl"][class*="max-w-"] * {
+  color: #e8edf3 !important;
+}
+
+/* ============================================================
+   ZONE DE SAISIE EN DARK MODE — INVERSÉE (fond blanc, texte bleu marine)
+   ============================================================ */
+
+/* Le cadre visuel autour du textarea */
+.dark div.bg-accent.rounded-3xl,
+.dark div.bg-card.rounded-3xl,
+.dark .rounded-3xl.min-h-24 {
+  background: #0a1424 !important;
+  border: 1px solid #1a2e4f !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Le textarea : transparent, texte gris bleuté clair */
+.dark #chat-input,
+.dark textarea#chat-input {
+  background: transparent !important;
+  color: #e8edf3 !important;
+  caret-color: #e8edf3 !important;
+}
+
+.dark #chat-input::placeholder,
+.dark textarea#chat-input::placeholder {
+  color: rgba(232, 237, 243, 0.5) !important;
+}
+
+/* Les boutons à côté du textarea : icônes en gris bleuté clair */
+.dark div.bg-accent.rounded-3xl button,
+.dark div.bg-card.rounded-3xl button,
+.dark .rounded-3xl.min-h-24 button {
+  color: #e8edf3 !important;
+}
+
+.dark div.bg-accent.rounded-3xl button svg,
+.dark div.bg-card.rounded-3xl button svg,
+.dark .rounded-3xl.min-h-24 button svg {
+  color: #e8edf3 !important;
+  stroke: #e8edf3 !important;
+}
+
+/* La flèche d'envoi : fond bleu marine inchangé, icône en #e8edf3 */
+.dark .rounded-3xl.min-h-24 button[type="submit"],
+.dark .rounded-3xl.min-h-24 button[aria-label*="send" i],
+.dark .rounded-3xl.min-h-24 button[aria-label*="Send" i],
+.dark .rounded-3xl.min-h-24 button:last-child {
+  background: #1a2e4f !important;
+}
+
+.dark .rounded-3xl.min-h-24 button[type="submit"] svg,
+.dark .rounded-3xl.min-h-24 button[aria-label*="send" i] svg,
+.dark .rounded-3xl.min-h-24 button[aria-label*="Send" i] svg,
+.dark .rounded-3xl.min-h-24 button:last-child svg {
+  color: #e8edf3 !important;
+  stroke: #e8edf3 !important;
+  fill: #e8edf3 !important;
+}
+
+/* ============================================================
+   BOUTONS D'ACTIONS THÉMATIQUES en dark mode
+   (bordure blanche, texte blanc, fond transparent ; hover blanc+texte bleu)
+   ============================================================ */
+
+.dark button[data-test^="action-"],
+.dark [class*="action"] button.MuiButton-outlined,
+.dark button.action-button {
+  background: transparent !important;
+  border: 1.5px solid white !important;
+  color: white !important;
+}
+
+.dark button[data-test^="action-"]:hover,
+.dark [class*="action"] button.MuiButton-outlined:hover,
+.dark button.action-button:hover {
+  background: white !important;
+  color: #1a2e4f !important;
+}
+
+.dark button[data-test^="action-"]:hover *,
+.dark [class*="action"] button.MuiButton-outlined:hover * {
+  color: #1a2e4f !important;
+}
+
+/* === Liens en dark === */
+.dark a {
+  color: #8db5d6 !important;
+  text-decoration-color: #3aa9d6 !important;
+}
+
+.dark a:hover {
+  color: #3aa9d6 !important;
+}
+
+/* === Scrollbar en dark === */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* === Petits éléments d'UI : sources, badges, etc === */
+.dark .source-container,
+.dark [class*="source"] {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-left: 3px solid #3aa9d6 !important;
+  color: white !important;
+}
+
+/* === Texte de footer (Built with Chainlit, "Les LLMs peuvent se tromper") === */
+.dark footer,
+.dark [class*="footer"],
+.dark [class*="watermark"] {
+  color: rgba(255, 255, 255, 0.5) !important;
+}

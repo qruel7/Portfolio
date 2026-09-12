@@ -1,0 +1,62 @@
+# Configuration Chainlit — Chatbot Master ESA
+
+[project]
+enable_telemetry = true
+user_env = []
+session_timeout = 3600
+cache = false
+allow_origins = ["*"]
+
+
+[features]
+unsafe_allow_html = true
+latex = false
+auto_tag_thread = true
+edit_message = true
+
+[features.spontaneous_file_upload]
+    enabled = false
+
+
+[UI]
+# Nom de l'assistant affiché dans le header
+name = "Assistant Master ESA"
+
+# Description (sous le nom)
+description = "Économétrie et Statistique Appliquée — Université d'Orléans"
+
+# CSS personnalisé (chemin depuis la racine, Chainlit sert /public automatiquement)
+custom_css = "/public/custom.css"
+
+# Police personnalisée
+custom_font = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+
+# Masquer le chain-of-thought
+cot = "hidden"
+
+# Ne pas étendre les messages par défaut
+default_expand_messages = false
+
+
+[UI.theme]
+    # Forcer le mode clair UNIQUEMENT
+    default = "light"
+    layout = "wide"
+    font_family = "Inter, system-ui, -apple-system, sans-serif"
+
+    [UI.theme.light]
+        background = "#FAFBFC"
+        paper = "#FFFFFF"
+
+        [UI.theme.light.primary]
+            main = "#1a2e4f"
+            dark = "#0f1d35"
+            light = "#3a5278"
+
+        [UI.theme.light.text]
+            primary = "#1a2e4f"
+            secondary = "#5a6a85"
+
+
+[meta]
+generated_by = "1.0.0"

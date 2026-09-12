@@ -1,0 +1,722 @@
+---
+lang: fr
+output:
+  pdf_document:
+    df_print: paged
+geometry:
+- top=2cm
+- bottom=2cm
+- right=1.5cm
+- left=1.5cm
+header-includes: 
+- \usepackage{float}
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhf{} 
+- \renewcommand{\headrulewidth}{0pt} 
+- \renewcommand{\footrulewidth}{0pt}
+- \fancyfoot[C]{\thepage} 
+- \fancyfoot[R]{\includegraphics[width=4.5cm]{logo esa horizontal.jpg}}
+---
+
+
+
+\begin{titlepage}
+\thispagestyle{empty}
+	
+	\begin{figure}
+    \centering
+    \vspace{-1cm}
+    \raisebox{-0.5\height}{\includegraphics[height=5cm]{logo univ orleans.png}}
+    \hspace{2cm}
+    \raisebox{-0.5\height}{\includegraphics[height=7cm]{logo esa vertical.jpg}}
+\end{figure}
+		
+	
+	\begin{center}	
+		{\vspace{3cm}
+		  \setlength{\fboxsep}{15pt}
+      \setlength{\fboxrule}{1.5pt}
+      \fbox{\parbox{0.8\textwidth}{\centering
+        \Huge \bf Projet de Méthodes de Prévision\\
+        \vspace{1cm}
+        \LARGE Prévision des arrivées de touristes par méthodes de décomposition}}
+			
+	    
+			\vspace{8cm}
+			\LARGE Réalisé par Quentin Ruel et Olivier Baudouin
+			\vfill	
+			\large Mai 2026 
+			\pagebreak}
+	\end{center}
+	
+\end{titlepage}
+
+
+\newpage
+\tableofcontents
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  fig.align  = "center",
+  fig.width  = 7,
+  fig.height = 4.5,
+  out.width  = "85%",
+  fig.pos    = "H",
+  comment    = NA
+)
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(lubridate)
+library(knitr)
+library(kableExtra)
+
+df <- read_excel("data_mdp.xlsx")
+colnames(df) <- c("date", "y")
+df$date <- as.Date(df$date)
+df <- df %>% arrange(date) %>% mutate(year = year(date), month = month(date))
+
+# Fonction de lissage par moyenne mobile centrée d'ordre p
+mm_centree <- function(y, p = 12) {
+  T <- length(y)
+  T_hat <- rep(NA_real_, T)
+  poids <- c(0.5, rep(1, p - 1), 0.5) / p
+  for (t in (p/2 + 1):(T - p/2)) {
+    T_hat[t] <- sum(poids * y[(t - p/2):(t + p/2)])
+  }
+  T_hat
+}
+```
+
+# \underline{Introduction}
+
+Ce projet vise à prévoir les arrivées mensuelles de touristes dans un pays sur l'horizon 06/2025 à 06/2027, à partir d'un historique de `r nrow(df)` observations couvrant la période `r format(min(df$date), "%m/%Y")` à `r format(max(df$date), "%m/%Y")`. La principale difficulté réside dans la rupture structurelle liée à la pandémie de COVID-19, qui a entraîné un effondrement quasi-total des arrivées entre mars 2020 et fin 2022.
+
+Pour répondre à cette problématique, nous mobilisons les **méthodes de décomposition** vues en cours et comparons trois stratégies de traitement de la rupture : une approche naïve sur la série complète (A), une approche restreinte à la période pré-COVID (B) et une approche par imputation contrefactuelle de la période COVID (C). Pour chaque approche, le modèle est évalué par backtesting sur 12 mois, puis le meilleur est retenu pour produire les prévisions finales.
+
+Le rapport est structuré comme suit. La section 2 présente l'analyse exploratoire et le diagnostic du schéma de décomposition. La section 3 expose la décomposition manuelle complète sur l'approche B (cas pédagogique). Les sections 4 et 5 appliquent les approches A et C. La section 6 compare les performances et produit les prévisions finales. La section 7 conclut.
+
+
+\vspace{0.6cm}
+
+# \underline{Analyse exploratoire et diagnostic :}
+
+## Visualisation de la série
+
+```{r fig-serie, echo=FALSE, fig.cap="Arrivées mensuelles de touristes (02/2016 à 05/2025). La zone rouge identifie la période COVID.", fig.height=3.5}
+ggplot(df, aes(x = date, y = y)) +
+  annotate("rect", xmin = as.Date("2020-03-01"), xmax = as.Date("2022-12-01"),
+           ymin = -Inf, ymax = Inf, fill = "coral", alpha = 0.12) +
+  geom_line(color = "navyblue", linewidth = 0.7) +
+  annotate("text", x = as.Date("2021-08-01"), y = 2.2,
+           label = "COVID", color = "coral", fontface = "bold", size = 3.5) +
+  labs(x = "Date", y = "Touristes (millions)") +
+  theme_minimal() + theme(text = element_text(size = 11))
+```
+
+La série présente une saisonnalité marquée (pics récurrents en janvier et juillet, creux en mai-juin) ainsi qu'une tendance haussière de long terme sur les périodes hors COVID. La rupture COVID est nette : effondrement brutal en mars-avril 2020, plancher quasi-nul jusqu'à fin 2021, puis remontée progressive courant 2022 avec retour aux niveaux pré-COVID dès 2023.
+
+\newpage
+
+## Diagnostic du schéma de décomposition
+
+Trois indicateurs sont mobilisés pour choisir entre schéma additif et multiplicatif : la méthode de la bande (segments min/max annuels), la méthode du profil (superposition des courbes annuelles), et la corrélation entre l'amplitude saisonnière et le niveau moyen annuel.
+
+```{r fig-diag, echo=FALSE, fig.cap="Diagnostic du schéma : à gauche, méthode de la bande ; à droite, méthode du profil. Les deux outils confirment un schéma multiplicatif (segments divergents et amplitudes proportionnelles au niveau).", fig.height=3.8, fig.width=10, out.width="95%"}
+library(patchwork)
+
+df_bande <- df %>%
+  filter(year < 2020 | year >= 2023) %>%
+  group_by(year) %>%
+  summarise(date_min = date[which.min(y)], val_min = min(y),
+            date_max = date[which.max(y)], val_max = max(y), .groups = "drop")
+
+p1 <- ggplot() +
+  geom_line(data = df %>% filter(year < 2020 | year >= 2023),
+            aes(x = date, y = y), color = "navyblue", linewidth = 0.4) +
+  geom_line(data = df_bande, aes(x = date_min, y = val_min), color = "darkgreen", linewidth = 1) +
+  geom_point(data = df_bande, aes(x = date_min, y = val_min), color = "darkgreen", size = 2) +
+  geom_line(data = df_bande, aes(x = date_max, y = val_max), color = "darkseagreen3", linewidth = 1) +
+  geom_point(data = df_bande, aes(x = date_max, y = val_max), color = "darkseagreen3", size = 2) +
+  labs(title = "Méthode de la bande", x = "Date", y = "Touristes (millions)") +
+  theme_minimal()
+
+p2 <- ggplot(df %>% filter(year < 2020 | year >= 2023),
+             aes(x = month, y = y, color = factor(year), group = year)) +
+  geom_line(linewidth = 0.7) + geom_point(size = 1.2) +
+  scale_x_continuous(breaks = 1:12) +
+  scale_color_viridis_d(name = "Année") +
+  labs(title = "Méthode du profil", x = "Mois", y = "Touristes (millions)") +
+  theme_minimal()
+
+p1 + p2
+```
+
+```{r corr-amp, echo=FALSE}
+amp <- df %>% filter(year < 2020 | year >= 2023) %>%
+  group_by(year) %>% summarise(moyenne = mean(y), amplitude = max(y) - min(y), .groups = "drop")
+corr_amp <- cor(amp$amplitude, amp$moyenne)
+```
+
+Les segments min/max ne sont pas parallèles (ils divergent au fil du temps) et les profils annuels présentent une amplitude croissante avec le niveau. La corrélation entre amplitude annuelle et niveau moyen vaut **`r round(corr_amp, 3)`**, confirmant analytiquement la dépendance. Les trois indicateurs convergent vers un **schéma multiplicatif**, qui sera retenu pour la suite. L'interprétation économique soutient ce choix : les pics saisonniers croissent proportionnellement au niveau de base du tourisme.
+
+## Traitement de la rupture COVID
+
+Trois approches sont comparées : 
+
+\begin{itemize}
+  \item[$\bullet$] \textbf{A} - Série brute, baseline naïve 
+  \item[$\bullet$] \textbf{B} - Estimation sur 02/2016-02/2020 uniquement
+  \item[$\bullet$] \textbf{C} - Imputation contrefactuelle de la période COVID
+\end{itemize}
+
+L'option intuitive consistant à simplement concaténer les périodes pré- et post-COVID est écartée : elle créerait une discontinuité temporelle artificielle invalidant les hypothèses des moyennes mobiles. Pour chaque approche, un backtesting sur les 12 derniers mois disponibles permet d'évaluer les performances via le RMSE et le MAPE.
+
+
+
+\newpage
+
+
+
+# \underline{Approche B - Décomposition manuelle sur série Pré-COVID) :}
+
+L'approche B applique la décomposition multiplicative à la **période pré-COVID uniquement** (02/2016 à 02/2020), soit 49 mois de données « propres » sans aucun effet pandémique. Elle est retenue comme **cas pédagogique principal** du rapport : c'est dans cette section que les cinq étapes de la décomposition vues en cours sont détaillées en code manuel, sans recours à la fonction `decompose()` de R. Les approches A et C présentées dans les sections suivantes utilisent exactement la même mécanique de calcul (encapsulée dans la fonction `mm_centree()` introduite ici), mais sans la dérouler étape par étape afin d'éviter les redondances.
+
+## Méthodologie
+
+**Justification du choix de B comme cas pédagogique.** Travailler sur la période pré-COVID présente trois avantages méthodologiques pour illustrer la décomposition. Premièrement, la série est exempte de toute rupture structurelle, ce qui permet d'observer la décomposition dans des conditions « idéales » sans devoir gérer simultanément la complication COVID. Deuxièmement, les 49 mois disponibles couvrent un peu plus de 4 cycles annuels complets, ce qui est suffisant pour estimer une moyenne mobile d'ordre 12 et obtenir des coefficients saisonniers stables. Troisièmement, cette période a fait l'objet d'un suivi statistique abondant dans la littérature, ce qui permet de comparer les résultats obtenus à des références connues.
+
+**Découpage train/test.** Comme pour les autres approches, un backtesting sur 12 mois est mis en place. Le découpage retenu est le suivant :
+
+- **Train** : 37 observations (02/2016 à 02/2019), utilisées pour estimer la tendance et les coefficients saisonniers.
+- **Test** : 12 observations (03/2019 à 02/2020), utilisées pour évaluer les performances prédictives.
+
+Pour la **présentation pédagogique** des cinq étapes (sous-section suivante), les calculs sont menés sur l'ensemble des 49 mois disponibles afin d'illustrer la décomposition sur la totalité de la période pré-COVID. Pour le **backtesting** (dernière sous-section), la décomposition est en revanche refaite uniquement sur les 37 mois d'entraînement.
+
+```{r prep-B, echo=FALSE}
+dfB <- df %>% filter(date <= as.Date("2020-02-01"))
+y_B <- dfB$y
+dates_B <- dfB$date
+T_B <- length(y_B)
+```
+
+## Décomposition manuelle (5 étapes)
+
+### Étapes 1 et 2 - Lissage et série des quotients
+
+La saisonnalité étant mensuelle et $p = 12$ étant pair, on applique une **moyenne mobile centrée 2x12** :
+$$\hat{T}_t = \frac{1}{12}\left(\frac{1}{2}Y_{t-6} + Y_{t-5} + \cdots + Y_{t+5} + \frac{1}{2}Y_{t+6}\right)$$
+
+La série des quotients $Q_t = Y_t / \hat{T}_t$ constitue alors un proxy de la composante saisonnière en schéma multiplicatif.
+
+```{r etape12, echo=FALSE}
+p <- 12
+T_hat_B <- rep(NA_real_, T_B)
+poids <- c(0.5, rep(1, p - 1), 0.5) / p
+for (t in (p/2 + 1):(T_B - p/2)) {
+  T_hat_B[t] <- sum(poids * y_B[(t - p/2):(t + p/2)])
+}
+Q_B <- y_B / T_hat_B
+```
+
+```{r fig-etapes12, echo=FALSE, fig.cap="Tendance estimée par MM(12) centrée (gauche) et série des quotients Qt = Yt / Tt (droite).", fig.height=3.5, fig.width=10, out.width="95%"}
+df_e1 <- tibble(date = dates_B, y = y_B, T_hat = T_hat_B, Q = Q_B)
+
+p_t <- ggplot(df_e1, aes(x = date)) +
+  geom_line(aes(y = y), color = "navyblue", linewidth = 0.4) +
+  geom_line(aes(y = T_hat), color = "coral", linewidth = 1) +
+  labs(title = "Étape 1 : tendance estimée", x = "Date", y = "Touristes (millions)") +
+  theme_minimal()
+
+p_q <- ggplot(df_e1 %>% filter(!is.na(Q)), aes(x = date, y = Q)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray40") +
+  geom_line(color = "navyblue", linewidth = 0.6) +
+  geom_point(color = "navyblue", size = 1.2) +
+  labs(title = "Étape 2 : série des quotients", x = "Date", y = "Q") +
+  theme_minimal()
+
+p_t + p_q
+```
+
+La tendance estimée présente une croissance régulière (+12% sur 3 ans) et la saisonnalité est bien éliminée. La série $Q_t$ oscille autour de 1 avec des pics récurrents en janvier et juillet, des creux en mai-juin.
+
+### Étapes 3 et 4 - Coefficients saisonniers (bruts puis centrés)
+
+Le coefficient brut du mois $j$ est la moyenne des $Q_t$ observés sur ce mois. Pour respecter la condition de cohérence du schéma multiplicatif (moyenne des coefficients = 1), on centre les coefficients en divisant par leur moyenne.
+
+```{r etape34, echo=FALSE, results='asis'}
+mois_noms <- c("Janv","Févr","Mars","Avr","Mai","Juin","Juil","Août","Sept","Oct","Nov","Déc")
+
+df_e2 <- tibble(date = dates_B, Q = Q_B, month = month(dates_B))
+S_full <- df_e2 %>% filter(!is.na(Q)) %>% group_by(month) %>%
+  summarise(s_brut = mean(Q), .groups = "drop") %>%
+  mutate(S_hat = s_brut / mean(s_brut),
+         effet = paste0(round((S_hat - 1) * 100, 1), " %"),
+         Mois = mois_noms[month])
+
+kable(S_full %>% select(Mois, s_brut, S_hat, effet),
+      format = "latex", booktabs = TRUE, digits = 4, align = "lccc",
+      caption = "Coefficients saisonniers bruts, centrés et effet en pourcentage",
+      col.names = c("Mois", "Brut", "Centré", "Effet")) %>%
+  kable_styling(latex_options = c("hold_position"), font_size = 9)
+```
+
+Le profil saisonnier est cohérent : pic principal en **janvier (+24,6 %)**, pic secondaire en **juillet (+12,9 %)**, et creux marqués en **mai-juin (-14 %)**. Cette structure bimodale est typique d'un pays touristique combinant saison hivernale et saison estivale.
+
+### Étape 5 - Série corrigée des variations saisonnières
+
+La série désaisonnalisée s'obtient par $Y^{CVS}_t = Y_t / \hat{S}_{mois(t)}$. Elle représente la variable d'intérêt débarrassée de l'effet saisonnier et facilitera la prévision en aval.
+
+```{r etape5, echo=FALSE, fig.cap="Décomposition complète : la série désaisonnalisée YCVS (verte) suit étroitement la tendance (rouge), validant la décomposition.", fig.height=3.8}
+S_t_B <- S_full$S_hat[match(month(dates_B), S_full$month)]
+Y_CVS_B <- y_B / S_t_B
+E_hat_B <- y_B / (T_hat_B * S_t_B)
+
+df_e5 <- tibble(date = dates_B, y = y_B, T_hat = T_hat_B, Y_CVS = Y_CVS_B) %>%
+  pivot_longer(-date, names_to = "Composante", values_to = "valeur") %>%
+  mutate(Composante = recode(Composante,
+                             "y" = "Y (originale)",
+                             "T_hat" = "Tendance",
+                             "Y_CVS" = "Y CVS"))
+
+ggplot(df_e5, aes(x = date, y = valeur, color = Composante)) +
+  geom_line(linewidth = 0.7) +
+  scale_color_manual(values = c("Y (originale)" = "navyblue",
+                                "Y CVS" = "darkseagreen",
+                                "Tendance" = "coral")) +
+  labs(x = "Date", y = "Touristes (millions)", color = "") +
+  theme_minimal() + theme(legend.position = "bottom", text = element_text(size = 11))
+```
+
+```{r diag-res, echo=FALSE}
+E_clean <- na.omit(E_hat_B)
+```
+
+La composante résiduelle a une moyenne de **`r round(mean(E_clean), 4)`** (très proche de 1 attendu) et un écart-type de **`r round(sd(E_clean), 4)`**, sans saisonnalité ni tendance résiduelle visible. La décomposition est satisfaisante et constitue une base solide pour la prévision.
+
+## Backtesting
+
+L'évaluation des performances prédictives de l'approche B suit la même démarche que celle qui sera ultérieurement appliquée aux approches A et C. La décomposition est cette fois ré-estimée uniquement sur les **37 observations d'entraînement** (02/2016 à 02/2019), puis les prévisions sont produites pour les 12 mois de test (03/2019 à 02/2020) en multipliant la tendance extrapolée linéairement par les coefficients saisonniers correspondants.
+
+```{r backtest-B-section, echo=FALSE}
+# Train: 02/2016 à 02/2019, Test: 03/2019 à 02/2020
+train_B <- dfB %>% filter(date < as.Date("2019-03-01"))
+test_B  <- dfB %>% filter(date >= as.Date("2019-03-01") & date <= as.Date("2020-02-01"))
+
+y_B_tr <- train_B$y
+months_B_tr <- train_B$month
+
+# Décomposition sur train uniquement
+T_hat_B_tr <- mm_centree(y_B_tr, 12)
+Q_B_tr <- y_B_tr / T_hat_B_tr
+S_brut_B_tr <- sapply(1:12, function(m) mean(Q_B_tr[months_B_tr == m], na.rm = TRUE))
+S_hat_B_tr  <- S_brut_B_tr / mean(S_brut_B_tr)
+
+S_t_B_tr <- S_hat_B_tr[months_B_tr]
+Y_CVS_B_tr <- y_B_tr / S_t_B_tr
+
+t_B_tr <- seq_along(y_B_tr)
+fit_B_tr <- lm(Y_CVS_B_tr ~ t_B_tr)
+slope_B_tr <- coef(fit_B_tr)[2]; int_B_tr <- coef(fit_B_tr)[1]
+
+# Prévisions
+t_test_B_pred <- (length(y_B_tr) + 1):(length(y_B_tr) + 12)
+months_test_B <- test_B$month
+y_pred_B <- (int_B_tr + slope_B_tr * t_test_B_pred) * S_hat_B_tr[months_test_B]
+
+rmse_B <- sqrt(mean((test_B$y - y_pred_B)^2))
+mape_B <- mean(abs((test_B$y - y_pred_B) / test_B$y)) * 100
+```
+
+```{r fig-backtest-B, echo=FALSE, fig.cap="Backtest de l'approche B : prévisions sur la période 03/2019 à 02/2020 (rouge) vs valeurs réelles (bleu).", fig.height=3.5}
+df_pred_B <- tibble(date = test_B$date, prevu = y_pred_B)
+
+ggplot() +
+  geom_line(data = dfB, aes(x = date, y = y), color = "navyblue",
+            linewidth = 0.5) +
+  geom_line(data = df_pred_B, aes(x = date, y = prevu),
+            color = "darkseagreen", linewidth = 0.6) +
+  geom_point(data = df_pred_B, aes(x = date, y = prevu),
+             color = "darkseagreen", size = 1) +
+  labs(x = "Date", y = "Touristes (millions)") +
+  theme_minimal() + theme(text = element_text(size = 11))
+```
+
+Le backtesting de l'approche B donne **RMSE = `r round(rmse_B, 3)`** millions et **MAPE = `r round(mape_B, 2)` %**. Les prévisions (rouge sur la figure) suivent fidèlement le profil saisonnier observé sur la période de test, capturant correctement les pics et les creux. La qualité de l'ajustement est très satisfaisante et démontre que la mécanique de décomposition multiplicative manuellement implémentée donne des résultats fiables sur une série propre. Cette performance servira de référence dans la section 6 lors de la comparaison avec les approches A et C.
+
+
+
+\newpage
+
+
+
+# \underline{Approche A - Décomposition naïve sur série complète :}
+
+L'approche A applique la décomposition au schéma multiplicatif sur l'ensemble de la série, sans aucun traitement préalable de la rupture COVID. Elle constitue une **baseline délibérément naïve** : son objectif n'est pas de produire de bonnes prévisions, mais de **quantifier empiriquement les biais introduits par la rupture** lorsqu'elle est ignorée. Les résultats obtenus ici justifieront a posteriori la nécessité des approches B et C.
+
+## Méthodologie
+
+La démarche reproduit fidèlement les cinq étapes de la décomposition multiplicative vues en cours, en les appliquant cette fois à la série complète couvrant 02/2016 à 05/2024 (échantillon d'entraînement). Les 12 derniers mois disponibles (06/2024 à 05/2025) sont mis de côté pour le backtesting.
+
+Le découpage en train/test est donc le suivant :
+
+- **Train** : 100 observations (02/2016 à 05/2024), incluant la totalité de la période COVID.
+- **Test** : 12 observations (06/2024 à 05/2025).
+
+La même fonction `mm_centree()` que celle utilisée à la section 3 est mobilisée pour le lissage par moyenne mobile centrée d'ordre 12. Les coefficients saisonniers sont estimés en moyennant les quotients $Q_t = Y_t / \hat{T}_t$ par mois calendaire, puis centrés. Enfin, la tendance projetée est obtenue par une **régression linéaire simple** sur la série désaisonnalisée $Y^{CVS}$, ce qui permet de produire des prévisions sur l'horizon de test en multipliant la tendance extrapolée par les coefficients saisonniers correspondants.
+
+```{r approche-A, echo=FALSE}
+# Train : jusqu'à 05/2024, Test : 06/2024 - 05/2025
+train_A <- df %>% filter(date < as.Date("2024-06-01"))
+test_A  <- df %>% filter(date >= as.Date("2024-06-01") & date <= as.Date("2025-05-01"))
+
+y_A <- train_A$y
+months_A <- train_A$month
+T_hat_A <- mm_centree(y_A, 12)
+Q_A <- y_A / T_hat_A
+
+S_brut_A <- sapply(1:12, function(m) mean(Q_A[months_A == m], na.rm = TRUE))
+S_hat_A  <- S_brut_A / mean(S_brut_A)
+
+S_t_A <- S_hat_A[months_A]
+Y_CVS_A <- y_A / S_t_A
+
+t_A <- seq_along(y_A)
+fit_A <- lm(Y_CVS_A ~ t_A)
+slope_A <- coef(fit_A)[2]; int_A <- coef(fit_A)[1]
+
+# Prévisions
+t_test_A <- (length(y_A) + 1):(length(y_A) + 12)
+months_test_A <- test_A$month
+y_pred_A <- (int_A + slope_A * t_test_A) * S_hat_A[months_test_A]
+
+rmse_A <- sqrt(mean((test_A$y - y_pred_A)^2))
+mape_A <- mean(abs((test_A$y - y_pred_A) / test_A$y)) * 100
+```
+
+## Résultats de la décomposition
+
+Les composantes estimées présentent plusieurs anomalies caractéristiques d'un mauvais ajustement :
+
+- **Coefficients saisonniers déformés** : par exemple le coefficient de juillet vaut **`r round(S_hat_A[7], 3)`** sous l'approche A contre **1.129** sous l'approche B (pré-COVID). Les valeurs nulles de juillet 2020 et 2021 sont moyennées avec les valeurs normales des autres années, ce qui tire artificiellement le coefficient vers le bas. Le pic de janvier subit la même déformation (`r round(S_hat_A[1], 3)` contre 1.246 en B).
+- **Tendance économiquement aberrante** : la pente estimée vaut **`r round(slope_A, 5)`** par mois, soit une tendance **légèrement décroissante**. Or, sur les périodes hors COVID, la croissance structurelle est clairement positive. Cette pente négative est un pur artefact statistique : la moyenne mobile « voit » l'effondrement de 2020-2022 comme une baisse durable, ce qui tire la pente vers le bas.
+
+```{r fig-approche-A, echo=FALSE, fig.cap="Approche A : prévisions sur la période de test (06/2024 à 05/2025). Les prévisions naïves (rouge) sous-estiment massivement les vraies arrivées (bleu).", fig.height=3.5}
+df_pred_A <- tibble(
+  date = test_A$date,
+  reel = test_A$y,
+  prevu = y_pred_A
+) %>% pivot_longer(-date, names_to = "type", values_to = "valeur")
+
+ggplot() +
+  geom_line(data = df, aes(x = date, y = y), color = "navyblue",
+            linewidth = 0.5) +
+  geom_line(data = df_pred_A %>% filter(type == "prevu"),
+            aes(x = date, y = valeur), color = "darkseagreen", linewidth = 0.6) +
+  geom_point(data = df_pred_A %>% filter(type == "prevu"),
+             aes(x = date, y = valeur), color = "darkseagreen", size = 1) +
+  labs(x = "Date", y = "Touristes (millions)") +
+  theme_minimal() + theme(text = element_text(size = 11))
+```
+
+## Backtesting et limites
+
+Les prévisions générées sur la période de test (rouge sur la figure ci-dessus) se situent autour de 0.7 à 1 million, alors que les valeurs réelles oscillent entre 1.5 et 2.4 millions. L'écart est systématique et important : le modèle prédit des arrivées d'environ **deux fois inférieures** à la réalité.
+
+Le backtesting confirme l'inadéquation de cette approche : **RMSE = `r round(rmse_A, 3)`** millions et **MAPE = `r round(mape_A, 1)` %**. Pour mettre ce résultat en perspective, un MAPE de 57 % signifie qu'en moyenne, les prévisions s'écartent de plus de la moitié de la valeur réelle, ce qui rend le modèle inutilisable pour toute application opérationnelle.
+
+Cette baseline remplit néanmoins son rôle : elle démontre empiriquement que **l'application directe de la décomposition à une série marquée par une rupture structurelle conduit à des résultats fortement biaisés**, et justifie pleinement la mise en œuvre des approches alternatives B et C présentées dans les sections suivantes.
+
+
+
+\newpage
+
+
+
+# \underline{Approche C - Imputation contrefactuelle :}
+
+L'approche C cherche à **exploiter l'ensemble de l'historique disponible** tout en évitant les biais identifiés sous l'approche A. Pour cela, elle remplace les observations COVID (03/2020 à 12/2022) par des valeurs **contrefactuelles** : ce qu'auraient probablement été les arrivées si la pandémie n'avait pas eu lieu, en prolongeant la dynamique structurelle observée avant 2020. Cette approche est inspirée des travaux récents sur la modélisation post-COVID en macroéconomie et constitue un compromis entre la rigueur méthodologique de B (qui n'utilise que 49 observations) et l'ambition de A (qui utilise les 112 observations mais en intégrant des valeurs aberrantes).
+
+## Méthodologie d'imputation
+
+La construction du contrefactuel s'appuie sur les estimations déjà obtenues à la section 3 (décomposition manuelle pré-COVID) et suit trois étapes formalisées ci-dessous.
+
+**Étape 1 : récupération des composantes pré-COVID.** Les coefficients saisonniers $\hat{S}_{pre,j}$ ($j = 1, \dots, 12$) et la série de tendance $\hat{T}_{pre,t}$ obtenus à la section 3 sur la période 02/2016 à 02/2020 sont conservés tels quels.
+
+**Étape 2 : ajustement linéaire de la tendance.** La tendance pré-COVID estimée par moyenne mobile centrée n'est définie que sur 37 mois (perte de 12 observations). Pour pouvoir l'extrapoler au-delà de 02/2020, on l'approxime par une régression linéaire :
+$$
+\hat{T}_{pre,t} = a + b \cdot t + \varepsilon_t
+$$
+où $t$ représente le numéro du mois depuis le début de la série (02/2016). Les paramètres $a$ et $b$ sont estimés par moindres carrés ordinaires sur les valeurs disponibles.
+
+**Étape 3 : génération du contrefactuel.** Pour chaque mois $t$ de la période COVID (mars 2020 à décembre 2022), la valeur contrefactuelle est obtenue en multipliant la tendance projetée par le coefficient saisonnier du mois calendaire correspondant :
+$$
+\hat{Y}^{contre}_t = (a + b \cdot t) \times \hat{S}_{pre,mois(t)}
+$$
+
+La série imputée notée $Y^{C}$ est alors construite en remplaçant les valeurs réelles par les valeurs contrefactuelles uniquement sur la période 03/2020 à 12/2022, et en conservant les observations originales partout ailleurs.
+
+```{r approche-C-construction, echo=FALSE}
+# Décomposition pré-COVID (déjà calculée mais on refait pour clarté du chunk)
+df_pre <- df %>% filter(date <= as.Date("2020-02-01"))
+y_pre <- df_pre$y
+T_hat_pre <- mm_centree(y_pre, 12)
+Q_pre <- y_pre / T_hat_pre
+months_pre <- df_pre$month
+S_brut_pre <- sapply(1:12, function(m) mean(Q_pre[months_pre == m], na.rm = TRUE))
+S_hat_pre  <- S_brut_pre / mean(S_brut_pre)
+
+# Régression linéaire sur la tendance pré-COVID
+t_pre <- seq_along(y_pre)
+fit_T <- lm(T_hat_pre ~ t_pre)
+slope_T <- coef(fit_T)[2]; int_T <- coef(fit_T)[1]
+
+# Construction de la série imputée
+df_C <- df %>% mutate(y_C = y, t_idx = row_number())
+covid_idx <- which(df_C$date >= as.Date("2020-03-01") &
+                   df_C$date <= as.Date("2022-12-01"))
+
+for (i in covid_idx) {
+  m <- df_C$month[i]
+  T_pred <- int_T + slope_T * df_C$t_idx[i]
+  df_C$y_C[i] <- T_pred * S_hat_pre[m]
+}
+```
+
+Sur les données du projet, l'ajustement linéaire de la tendance pré-COVID donne une pente positive de **`r round(slope_T, 5)`** par mois, soit une croissance d'environ **+`r round(slope_T*12*100/(int_T+slope_T*0), 1)`% par an**. La période imputée comprend **34 observations** (de mars 2020 à décembre 2022).
+
+```{r fig-imputation, echo=FALSE, fig.cap="Série imputée (vert pointillé) vs série originale (bleu). Les valeurs réelles COVID sont remplacées par leur projection contrefactuelle sur la période grisée.", fig.height=3.5}
+df_plot_C <- df_C %>% mutate(
+  Type = ifelse(date >= as.Date("2020-03-01") & date <= as.Date("2022-12-01"),
+                "Imputé", "Original"))
+
+ggplot() +
+  geom_line(data = df_C, aes(x = date, y = y), color = "navyblue",
+            linewidth = 0.5) +
+  geom_line(data = df_C, aes(x = date, y = y_C), color = "darkseagreen",
+            linewidth = 0.7, linetype = "dashed") +
+  annotate("rect", xmin = as.Date("2020-03-01"), xmax = as.Date("2022-12-01"),
+           ymin = -Inf, ymax = Inf, fill = "gray", alpha = 0.15) +
+  labs(x = "Date", y = "Touristes (millions)") +
+  theme_minimal() + theme(text = element_text(size = 11))
+```
+
+La figure ci-dessus permet de visualiser l'effet de l'imputation. Sur la zone grisée (période COVID), la série contrefactuelle (vert pointillé) prolonge naturellement la dynamique pré-COVID : niveau et profil saisonnier cohérents avec ce qu'on aurait pu observer sans pandémie. Le contraste avec les arrivées effectives (bleu) sur cette même période illustre l'ampleur réelle du choc subi par le secteur.
+
+## Décomposition sur série imputée
+
+Une fois la série imputée construite, on lui applique la **décomposition multiplicative standard** vue en cours, en utilisant la même fonction `mm_centree()` et la même séquence des cinq étapes que dans la section 3. Le découpage train/test est aligné sur celui de l'approche A pour permettre une comparaison directe : entraînement jusqu'à 05/2024, test sur 06/2024 à 05/2025.
+
+```{r approche-C-decomp, echo=FALSE}
+# Train: 02/2016 à 05/2024 (sur série imputée), Test: 06/2024 à 05/2025
+train_C <- df_C %>% filter(date < as.Date("2024-06-01"))
+test_C  <- df_C %>% filter(date >= as.Date("2024-06-01") & date <= as.Date("2025-05-01"))
+
+y_C_train <- train_C$y_C
+months_C <- train_C$month
+
+T_hat_C <- mm_centree(y_C_train, 12)
+Q_C <- y_C_train / T_hat_C
+S_brut_C <- sapply(1:12, function(m) mean(Q_C[months_C == m], na.rm = TRUE))
+S_hat_C  <- S_brut_C / mean(S_brut_C)
+
+S_t_C <- S_hat_C[months_C]
+Y_CVS_C <- y_C_train / S_t_C
+
+t_C <- seq_along(y_C_train)
+fit_C <- lm(Y_CVS_C ~ t_C)
+slope_C <- coef(fit_C)[2]; int_C <- coef(fit_C)[1]
+
+# Prévisions
+t_test_C <- (length(y_C_train) + 1):(length(y_C_train) + 12)
+months_test_C <- test_C$month
+y_pred_C <- (int_C + slope_C * t_test_C) * S_hat_C[months_test_C]
+
+rmse_C <- sqrt(mean((test_C$y - y_pred_C)^2))
+mape_C <- mean(abs((test_C$y - y_pred_C) / test_C$y)) * 100
+```
+
+Les composantes obtenues sont **structurellement très proches de celles de l'approche B**, ce qui est attendu puisque l'imputation préserve par construction la saisonnalité et la dynamique pré-COVID. Quelques exemples illustratifs :
+
+- Coefficient saisonnier de juillet : **`r round(S_hat_C[7], 3)`** en C contre **1.129** en B (écart < 1 %).
+- Coefficient saisonnier de janvier : **`r round(S_hat_C[1], 3)`** en C contre **1.246** en B.
+- Pente de tendance sur Y_CVS : **`r round(slope_C, 5)`** par mois en C, similaire à celle obtenue en B après correction.
+
+L'amélioration apportée par C par rapport à B se situe non pas sur la qualité des composantes elles-mêmes, mais sur la **robustesse statistique des estimations** : la décomposition est désormais entraînée sur 100 observations au lieu de 37 (train de B en backtest), ce qui réduit la variance d'estimation des coefficients saisonniers et de la tendance. Cet avantage devient surtout sensible pour des projections à long horizon.
+
+## Backtesting
+
+```{r fig-approche-C, echo=FALSE, fig.cap="Approche C : prévisions sur la période de test (06/2024 à 05/2025). L'ajustement aux vraies arrivées (bleu) est nettement meilleur que sous l'approche A.", fig.height=3.5}
+df_pred_C <- tibble(date = test_C$date, reel = test_C$y, prevu = y_pred_C)
+
+ggplot() +
+  geom_line(data = df, aes(x = date, y = y), color = "navyblue",
+            linewidth = 0.5) +
+  geom_line(data = df_pred_C, aes(x = date, y = prevu),
+            color = "darkseagreen", linewidth = 0.6) +
+  geom_point(data = df_pred_C, aes(x = date, y = prevu),
+             color = "darkseagreen", size = 1) +
+  labs(x = "Date", y = "Touristes (millions)") +
+  theme_minimal() + theme(text = element_text(size = 11))
+```
+
+Le backtesting de l'approche C donne **RMSE = `r round(rmse_C, 3)`** millions et **MAPE = `r round(mape_C, 2)` %**, soit une amélioration spectaculaire par rapport à l'approche A : le MAPE est **divisé par environ 10** (de 57 % à 5.5 %). La figure ci-dessus montre que les prévisions C (rouge) suivent fidèlement le profil saisonnier de la série originale (bleu), capturant correctement les pics et les creux. Les écarts résiduels sont principalement dus à la variabilité aléatoire et à un léger sous-estimation de la tendance la plus récente (la croissance post-COVID semble s'être accélérée par rapport au rythme structurel pré-COVID).
+
+
+
+
+# \underline{Comparaison des approches et choix du modèle final :}
+
+## Synthèse des performances
+
+Le tableau ci-dessous synthétise les résultats des trois approches en backtesting. Chaque approche a été évaluée sur 12 mois de données mises de côté, avec calcul du RMSE (en valeur absolue) et du MAPE (en pourcentage de la valeur réelle).
+
+```{r tab-comparaison, echo=FALSE, results='asis'}
+comp <- data.frame(
+  Approche = c("A - Naïve (série complète)",
+               "B - Pré-COVID uniquement",
+               "C - Imputation contrefactuelle"),
+  Periode_test = c("06/2024 - 05/2025", "03/2019 - 02/2020", "06/2024 - 05/2025"),
+  Nb_obs_train = c(length(y_A), length(y_B_tr), length(y_C_train)),
+  RMSE = round(c(rmse_A, rmse_B, rmse_C), 4),
+  MAPE = paste0(round(c(mape_A, mape_B, mape_C), 2), " %")
+)
+
+kable(comp, format = "latex", booktabs = TRUE, align = "lcccc",
+      caption = "Comparaison des performances des trois approches en backtesting",
+      col.names = c("Approche", "Période de test", "Nb obs. train", "RMSE", "MAPE")) %>%
+  kable_styling(latex_options = c("hold_position"), font_size = 10)
+```
+
+Trois enseignements ressortent de ce tableau :
+
+- **L'approche A est inutilisable** (MAPE de 57 %), ce qui valide empiriquement la nécessité d'un traitement spécifique de la rupture COVID. Le RMSE de 1.05 million signifie qu'en moyenne les prévisions s'écartent de plus d'un million d'arrivées par mois, ce qui est aberrant pour une série dont les valeurs typiques se situent entre 1.5 et 2.5 millions.
+
+- **Les approches B et C donnent des performances très proches** (RMSE quasi-identiques à 0.114 et 0.112, MAPE de 4.77 % vs 5.51 %). Cette quasi-équivalence est en soi un résultat important : elle signifie que **les prévisions construites sur la dynamique pré-COVID se réalisent effectivement en post-COVID**, ce qui valide rétrospectivement l'hypothèse de retour à la trajectoire structurelle. Autrement dit, le tourisme a effectivement « rattrapé » sa trajectoire pré-pandémique. De plus, on peut souligner qu'un MAPE aux alentours de 5 % est considéré comme un excellent score de précision dans le secteur du tourisme, caractérisé par une forte volatilité. Cette performance valide la robustesse méthodologique globale de nos deux modèles.
+
+- **L'approche B obtient un MAPE légèrement meilleur** (4.77 % vs 5.51 %), mais sur une période de test différente (2019-2020) où la dynamique était plus stable et plus prévisible. L'approche C est testée sur 2024-2025 où la croissance s'est accélérée, ce qui complique légèrement la prédiction. Cette différence de période de test rend la comparaison directe des deux MAPE délicate à interpréter de manière mécanique.
+
+## Choix du modèle final
+
+Sur la base du backtesting, l'approche **A est définitivement écartée**. Le choix se joue donc entre B et C, dont les performances sont quasi-équivalentes. **L'approche C est retenue** pour la production des prévisions finales, pour deux raisons principales :
+
+1. **Robustesse statistique**. L'approche C exploite l'**ensemble de l'historique disponible** (112 observations contre 49 pour B), ce qui rend les estimations de tendance et de saisonnalité plus robustes. En particulier, chaque coefficient saisonnier mensuel est estimé sur 8 à 9 années d'observations en C, contre seulement 3 à 4 années en B. Cette différence devient critique pour des projections lointaines, où la moindre erreur d'estimation se propage et s'amplifie sur l'horizon prévu.
+
+2. **Adjacence temporelle au test**. La période de backtesting de C (06/2024 à 05/2025) est immédiatement adjacente à la période de prévision (06/2025 à 06/2027). Cela signifie que le modèle a été validé dans des conditions très proches de celles de l'usage prévu. À l'inverse, la performance de B est mesurée sur 2019-2020, soit avant la rupture COVID, ce qui ne garantit pas le bon comportement du modèle dans le contexte économique post-pandémique actuel.
+
+C'est donc l'approche C, dans sa version ré-estimée sur l'intégralité de la série imputée, qui sera utilisée à la section suivante pour produire les prévisions finales.
+
+
+
+\newpage
+
+
+
+# \underline{Prévisions finales (06/2025 à 06/2027) :}
+
+## Génération des prévisions
+
+Le modèle retenu (approche C) est ré-estimé sur l'**intégralité de la série imputée** (02/2016 à 05/2025) afin de maximiser l'information disponible pour les projections. Concrètement, la décomposition multiplicative complète est refaite sur les 112 observations (avec les 34 observations COVID toujours imputées par contrefactuel), puis les prévisions sont produites mois par mois sur l'horizon 06/2025 à 06/2027 (25 mois) en multipliant la tendance extrapolée linéairement par les coefficients saisonniers correspondants :
+$$
+\hat{Y}_{T+h} = (a_{full} + b_{full} \cdot (T+h)) \times \hat{S}_{full,mois(T+h)}
+$$
+
+```{r previsions-finales, echo=FALSE}
+# Ré-estimation sur toute la série imputée
+y_full <- df_C$y_C
+months_full <- df_C$month
+
+T_hat_full <- mm_centree(y_full, 12)
+Q_full <- y_full / T_hat_full
+S_brut_full <- sapply(1:12, function(m) mean(Q_full[months_full == m], na.rm = TRUE))
+S_hat_full  <- S_brut_full / mean(S_brut_full)
+
+S_t_full <- S_hat_full[months_full]
+Y_CVS_full <- y_full / S_t_full
+
+t_full <- seq_along(y_full)
+fit_full <- lm(Y_CVS_full ~ t_full)
+slope_full <- coef(fit_full)[2]; int_full <- coef(fit_full)[1]
+
+# Prévisions sur 25 mois (06/2025 à 06/2027)
+dates_pred <- seq.Date(as.Date("2025-06-01"), as.Date("2027-06-01"), by = "month")
+t_pred <- (length(y_full) + 1):(length(y_full) + length(dates_pred))
+months_pred <- month(dates_pred)
+y_pred_final <- (int_full + slope_full * t_pred) * S_hat_full[months_pred]
+
+# Estimation grossière d'intervalles à 80% via les résidus du modèle
+residus <- y_full / (T_hat_full * S_t_full)
+sigma_res <- sd(residus, na.rm = TRUE)
+y_pred_low  <- y_pred_final * (1 - 1.28 * sigma_res)
+y_pred_high <- y_pred_final * (1 + 1.28 * sigma_res)
+
+df_prev <- tibble(date = dates_pred, prevu = y_pred_final,
+                  borne_basse = y_pred_low, borne_haute = y_pred_high)
+```
+
+Un **intervalle de confiance approximatif à 80 %** est calculé à partir de l'écart-type des résidus de la décomposition $\hat{E}_t = Y_t / (\hat{T}_t \cdot \hat{S}_t)$, sous hypothèse de stabilité du processus. Concrètement, les bornes sont obtenues par $\hat{Y}_{T+h} \times (1 \pm 1.28 \cdot \sigma_{\hat{E}})$, où le facteur 1.28 correspond au quantile à 90 % de la loi normale centrée réduite. Cette méthode reste approximative et ne capture que l'incertitude liée à la variabilité aléatoire historique, sans tenir compte des risques exogènes (nouvelle pandémie, choc géopolitique, etc.).
+
+```{r fig-previsions, echo=FALSE, fig.cap="Prévisions finales 06/2025 à 06/2027 (rouge) et intervalle de confiance approximatif à 80 pourcent (zone verte). La série historique est en bleu.", fig.height=4}
+ggplot() +
+  geom_line(data = df, aes(x = date, y = y), color = "navyblue", linewidth = 0.6) +
+  geom_ribbon(data = df_prev, aes(x = date, ymin = borne_basse, ymax = borne_haute),
+              fill = "darkseagreen4", alpha = 0.2) +
+  geom_line(data = df_prev, aes(x = date, y = prevu), color = "darkseagreen", linewidth = 0.6) +
+  geom_point(data = df_prev, aes(x = date, y = prevu), color = "darkseagreen", size = 1) +
+  labs(x = "Date", y = "Touristes (millions)") +
+  theme_minimal() + theme(text = element_text(size = 11))
+```
+
+```{r tab-previsions, echo=FALSE, results='asis'}
+df_prev_tab <- df_prev %>%
+  mutate(Mois = format(date, "%m/%Y"),
+         Prevu = round(prevu, 3),
+         IC = paste0("[", round(borne_basse, 3), " ; ", round(borne_haute, 3), "]")) %>%
+  select(Mois, Prevu, IC)
+
+# Présenter en deux colonnes pour gagner de la place
+n_half <- ceiling(nrow(df_prev_tab) / 2)
+left  <- df_prev_tab[1:n_half, ]
+right <- df_prev_tab[(n_half+1):nrow(df_prev_tab), ]
+# Compléter la 2e colonne pour qu'elle ait la même taille
+if (nrow(right) < n_half) {
+  right <- rbind(right, data.frame(Mois = "", Prevu = NA, IC = ""))
+}
+combined <- cbind(left, right)
+colnames(combined) <- c("Mois", "Prévision", "IC 80%", "Mois ", "Prévision ", "IC 80% ")
+
+kable(combined, format = "latex", booktabs = TRUE, align = "lcclcc",
+      caption = "Prévisions mensuelles des arrivées de touristes (en millions)") %>%
+  kable_styling(latex_options = c("hold_position"), font_size = 9)
+```
+
+## Lecture des résultats
+
+Les prévisions générées confirment la **poursuite de la dynamique structurelle** observée sur les périodes hors COVID : tendance haussière modérée combinée à une saisonnalité bimodale stable.
+
+Sur le plan saisonnier, le pic de janvier (point haut absolu de l'année) passe de **2.38 millions** observé en janvier 2025 à environ **`r round(df_prev$prevu[which(format(df_prev$date, '%m')=='01')[1]], 2)` millions** en janvier 2026 puis **`r round(df_prev$prevu[which(format(df_prev$date, '%m')=='01')[2]], 2)` millions** en janvier 2027. Les creux estivaux de mai-juin se maintiennent autour de **`r round(df_prev$prevu[which(format(df_prev$date, '%m')=='05')[1]], 2)` millions**, soit le niveau structurel typique de basse saison. Le pic secondaire de juillet et le pic d'octobre suivent également la tendance haussière, conformément aux coefficients saisonniers estimés.
+
+Sur le plan tendanciel, la pente estimée sur la série désaisonnalisée vaut **`r round(slope_full * 12, 4)` par an**, soit une croissance d'environ **+`r round(slope_full * 12 * 100 / int_full, 1)` %** par an. Cette croissance modérée est cohérente avec la dynamique observée sur les périodes saines (2016-2019 et 2023-2025) et reflète l'expansion structurelle du secteur touristique du pays étudié.
+
+L'intervalle de confiance à 80 % donne une bande d'environ **plus ou moins 4 %** autour des prévisions centrales. Cette plage est volontairement étroite car elle ne capture que la variabilité statistique historique. Elle doit être interprétée avec prudence : un choc exogène majeur (de l'ampleur du COVID, par exemple) ferait sortir les valeurs réalisées très largement de cet intervalle. Les prévisions reportées doivent donc être comprises comme **des projections conditionnelles à un environnement économique stable**.
+
+
+
+\vspace{1.5cm}
+
+# \underline{Conclusion}
+
+Ce projet a appliqué les méthodes de décomposition vues en cours pour produire des prévisions des arrivées de touristes sur l'horizon 06/2025 à 06/2027. La principale difficulté méthodologique résidait dans le traitement de la rupture COVID, qui rendait inopérante une application naïve de la décomposition.
+
+**Trois approches ont été comparées rigoureusement** : une décomposition naïve sur la série complète (A), une décomposition restreinte à la période pré-COVID (B), et une décomposition sur série imputée par contrefactuel (C). Le diagnostic préalable a confirmé le choix d'un schéma multiplicatif, à l'aide des méthodes de la bande, du profil et d'une vérification analytique de la corrélation amplitude-niveau.
+
+**Les enseignements principaux** sont les suivants. D'une part, l'approche naïve A produit des prévisions inutilisables (MAPE de 57 %), démontrant empiriquement la nécessité d'un traitement explicite de la rupture COVID. D'autre part, les approches B et C donnent des performances très proches en backtesting (MAPE entre 4.8 % et 5.5 %), validant rétrospectivement l'hypothèse de retour du tourisme à sa trajectoire structurelle pré-COVID. L'approche C, exploitant l'ensemble de l'historique, a été retenue pour les prévisions finales en raison de sa robustesse pour des projections lointaines.
+
+**Limites et pistes d'amélioration.** Plusieurs limites doivent être soulignées. Premièrement, l'imputation contrefactuelle de l'approche C repose sur l'hypothèse forte que la dynamique pré-COVID se serait poursuivie linéairement sans pandémie, ce qui n'est qu'une approximation. Deuxièmement, les intervalles de confiance reportés sont approximatifs et ne capturent que l'incertitude statistique, ignorant les risques exogènes. Troisièmement, le modèle de tendance choisi (régression linéaire simple) pourrait être affiné par des méthodes plus flexibles (lissage exponentiel, splines, ou modèles ARIMA sur la série désaisonnalisée). Enfin, l'analyse pourrait être enrichie en intégrant des variables explicatives exogènes (taux de change, événements internationaux, indicateurs économiques) via des modèles à composante tendancielle augmentée.

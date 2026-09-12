@@ -1,0 +1,484 @@
+---
+title: "L'influence des réseaux sociaux dans le quotidien des étudiants"
+author: "Ennya Zaccharie - Ruel Quentin"
+date: "11 décembre 2023"
+lang: "fr"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    number_section: yes
+    theme: journal
+editor_options: 
+  chunk_output_type: console
+  self_contained: yes
+---
+```{r, echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE,warning = FALSE,message = FALSE)
+
+```
+
+```{r}
+library(knitr) 
+library(kableExtra) 
+library(ggplot2) 
+library(ggridges) 
+library(readr)
+library(dplyr)
+library(forcats)
+```
+
+```{r fonctions}
+resume_var <- function(x){
+  v <- c(mean(x, na.rm = TRUE), 
+         sd(x, na.rm = TRUE), 
+         quantile(x,seq(0,1,0.25), na.rm = TRUE))
+  names(v) <- c("Moyenne", "Écart type", 
+                "Minimum", "Q1", "Médiane", "Q3", "Maximum")
+  return(v) 
+}
+resume<-function(df,arrondi=2){
+ sapply(df,FUN=resume_var) %>% round(digits=arrondi)
+}
+
+recode <- function(variable){ifelse(is.na(variable), 0, 1)}
+
+Table<-function(x,y){
+  z<-round(table(x,y) %>%  
+        addmargins(),2)
+  return(z)
+}
+Table_prop<-function(x,y){
+    k<-round(table(x,y) %>% 
+    prop.table() %>% 
+      addmargins(),2)
+  return(k)
+}
+indep_test_auto<-function(x,y,...){
+  test<-chisq.test(x,y,...)
+  output<-c(min(test$expected),test$p.value)
+  names(output)<-c("min.eff.theo","p-value")
+  return(output)
+}
+
+moyenne_test_auto<-function(x,y,...){
+  test<-t.test(x,y,...)
+  output<-c(test$p.value)
+  names(output)<-c("p-value")
+  return(output)
+}
+```
+
+```{r packages, echo=FALSE, warning=FALSE, message=FALSE}
+data<-read.csv("sondage_version_finale.csv",sep=";")
+
+```
+
+```{r}
+Couleur<- c("skyblue2","pink")
+```
+<br>
+
+# Introduction:
+<p style="text-align: justify;">Dans un monde en constante évolution technologique,de nombreuses innovations se sont imposés comme des éléments indispensables de notre quotidien, notamment les téléphones portables et les ordinateurs. L'essor d'internet marque une période de croissance économique rapide et d'adoption généralisée de ces innovations, permettant ainsi la l'apparition des premiers réseaux sociaux comme Facebook en 2004 qui compte aujourd'hui plus de 2 milliards d'utilisateurs réguliers dans le monde. D'aprés "Datareportal", 52 millions de français sont actifs sur les réseaux sociaux en 2023 soit environ 80% de la population française.</p>
+
+<p style="text-align: justify;">Ici nous chercherons à expliquer quelle part prend les réseaux sociaux dans la vie quotidienne d'un étudiant.  Pour ce faire, on se basera sur un sondage auquels **`r nrow(data)` étudiants de l'Université de Tours** ont répondu. Notre échantillon se compose majoritairements d'étudiants en filière Economie, représentant `r round(sum(data$Filière == "Économie")/nrow(data)*100, 1)`% des répondants.</p>
+
+<p style="text-align: justify;">Nous nous pencheront sur les caractéristiques suivantes afin d'établir des liens de corrélations, et de tenter d'expliquer l'influence et la tendance des réseaux sociaux chez les étudiants :</p>
+
+- Le genre
+- L'âge
+- Le réseau social le plus utilisé 
+- Le temps passé... :
+  + par jour sur le téléphone
+  + par jour sur les réseaux sociaux
+  + par semaine à étudier
+
+Avant de se lancer dans notre étude, nous avons émis quelques hypothèses qui sont les suivantes : 
+
+- Plus un étudiant passe de temps sur les réseaux, moins il allouera de temps pour son travail personnel.
+- Les étudiants ont plus tendance à se diriger vers des application de divertissement comme TikTok.
+- Le genre n'influe pas sur le temps passé sur les réseaux sociaux.
+- Plus un étudiant est jeune, plus il va passer de temps sur les réseaux sociaux.
+
+
+
+##  Présentation de l'échantillon
+
+<p style="text-align: justify;">Avant de se lancer plus en détail dans l'analyse, un court aperçu de la répartition globale de notre échantillon est nécessaire afin de déceler certaines tendances ou axes à étudier ensuite. De plus, ne voulant pas biaiser certains de nos résultats, nous avons choisi d'exclure les données de deux répondants dont les réponses étaient incohérentes. Notre étude se portera donc sur 205 étudiants de Tours.</p>
+
+```{r}
+df<-data[c(-197,-151,-27),]
+colnames(df)[26]<-"temps_reseaux"
+colnames(df)[11]<-"temps_travail"
+```
+
+```{r sous data.frame}
+Masculin<-which(df$Genre=="Masculin")
+Féminin<-which(df$Genre=="Féminin")
+
+df_Masculin<-subset(df,df$Genre=="Masculin")
+df_Féminin<-subset(df,df$Genre=="Féminin")
+```
+
+```{r include=FALSE}
+table_age_genre<-Table(df$Genre,df$Age)
+colnames(table_age_genre)[13]<-"Total"
+rownames(table_age_genre)[3]<-"Total"
+```
+
+```{r}
+kable_styling(
+  kable(
+    table_age_genre,
+    align = "c",
+    caption = "Répondantes et répondants selon le genre et l'âge"),
+  full_width = FALSE,
+  position = "center",
+  bootstrap_options = c("striped", "bordered")
+  )
+```
+
+Afin de mieux appréhender notre échantillon, le format de diagramme en boîte paraît le plus approprié :
+
+
+```{r}
+par(mfrow = c(1, 2))
+
+boxplot(df$Age[df$Genre=="Féminin"],
+        col="skyblue2",
+        range=0,
+        ylim=c(15,31),
+        main="Femmes",
+        ylab="Âge",
+        las=1,
+        lty=1)
+legend("topright", legend = c("Moyenne: 19","Min: 16","Max: 30"),cex=0.6,bty="n")
+
+
+boxplot(df$Age[df$Genre=="Masculin"],
+        col="red",
+        range=0,
+        ylim=c(15,31),
+        main="Hommes",
+        las=1,
+        lty=1)
+legend("topright", legend = c("Moyenne: 19.2","Min: 16","Max: 31"),cex=0.6,bty="n")
+```
+
+<p style="text-align: justify;">Ces graphiques nous montrent que l'âge de notre échantillon présente une dispersion importante, allant de 16 ans jusqu'à 31 ans. Néanmoins on remarque que la "boîte" est particulièrement resserrée chez les femmes comme chez les hommes, ce qui signifie que plus de 50% des répondants ont entre 18 et 20 ans. Nous avons donc un échantillon jeune et bien représentatif d'une population étudiante.</p>
+
+<br>
+
+# Une génération cyber-connectée
+
+<p style="text-align: justify;">Nous avons donc un échantillon composé de jeunes individus qui ont baigné et grandit avec la technologie depuis leur enfance. Nous allons désormais nous intéresser à leurs petites habitudes numériques.</p>
+
+
+## La part des réseaux sociaux dans l'utilisation du téléphone
+
+Dans un premier temps, intéressons nous au temps passé sur le téléphone et sur les réseaux sociaux. 
+<p style="text-align: justify;">Pour cela, nous avons réalisé un graphique représentant la répartition du temps passé sur leur téléphone et du temps passé sur les réseaux. Nous avons obtenu la figure qui suit :</p>
+
+```{r}
+par(mfrow=c(1,1))
+plot(table(round(df$Temps.passé.par.jour.sur.votre.téléphone.en.heure)),
+                 lwd=1, xaxt="n",
+                 col=c("black"),
+                 ylim=c(0,70),xlim=c(0,16),
+                 xlab="Nombre d'heures",
+                 ylab="Effectif",
+                 main="Répartition du temps passé sur les réseaux sociaux \n comparativement au temps passé sur le téléphone",
+                 cex.main = 1,
+                 cex.lab=0.9,
+                 cex.names = 0.8,
+                 cex.axis = 0.8,
+                 las=1,
+                 space=1.5,type="l")
+
+lines(table(round(df$temps_reseaux)),
+      lwd=1,type="l", col=c("red"))
+axis(1,at=seq(0,16,by=1),cex.axis=0.8)
+
+
+legend("topright", legend = c("Temps passé sur le Téléphone par Jour","Temps passé sur les Réseaux Sociaux par Jour"),col=c("black","red"),pch=15,cex=0.8)
+
+```
+<p style="text-align: justify;">On remarque au premier coup d'oeil qu'une certaine proportion de nos 205 étudiants n'utilisent pas quotidiennement les réseaux sociaux, ce qui n'est pas forcément ce à quoi l'on s'attend d'un échantillon aussi jeune. Toutefois, on remarque que la forme des deux courbes est assez proche, ce qui supposerait que le nombre d'heures passées sur le téléphone et celui passé sur les réseaux sociaux seraient positivement corrélés. Nous avons tenté de vérifier cela en faisant une régression linéaire simple avec comme variable explicative le temps passé sur les réseaux afin d'expliquer la variable dépendante qui est le temps passé sur le téléphone.</p>
+
+<br>
+
+```{r,echo=FALSE}
+modele_regression <- lm(Temps.passé.par.jour.sur.votre.téléphone.en.heure ~ temps_reseaux, data = df) 
+
+tableau_recap <- data.frame(
+  Coefficients = coef(modele_regression),
+  `Pr(>|t|)` = summary(modele_regression)$coefficients[, 4]
+)
+```
+
+
+
+```{r}
+kable(tableau_recap, format = "html",align = "c", caption = "Résumé de la régression linéaire")
+```
+<br>
+<br>
+
+Au vu des résultats obtenus (corrélation positive d'environ 0,78), on en déduit donc qu'une heure supplémentaire passée sur les réseaux sociaux augmente le temps passé sur le téléphone de 0,78 en moyenne. 
+
+
+## Et les révisions dans tout ça ?
+
+<p style="text-align: justify;">Nos étudiants ont-ils tout de même du temps à consacrer à leurs révisions ? Le graphique suivant illustre la répartition du temps alloué à leur travail personnel comparativement au temps passé sur les réseaux sociaux (que nous avons converti en heures par semaine afin d'avoir la même échelle) :</p>
+
+```{r}
+plot(table(round(df$temps_travail)),
+                 lwd=1,xaxt="n", 
+                 col=c("blue"),
+                 ylim=c(0,70),
+                 xlab="Nombre d'heures",xlim=c(0,70),
+                 ylab="Effectif",
+                 main="Répartition du temps alloué au travail personnel \n comparativement au temps passé sur les réseaux",
+                 cex.main = 1,
+                 cex.lab=0.9,
+                 cex.names = 0.8,
+                 cex.axis = 0.8,
+                 las=1,
+                 space=1.5,type="l")
+
+lines(table(round(df$temps_reseaux)*7),
+      lwd=1,type="l", col=c("red"))
+axis(1,at=seq(0,70,by=4),cex.axis=0.8)
+
+legend("topright", legend = c("Temps de Travail Personnel par Semaine","Temps passé sur les Réseaux Sociaux par Semaine"),col=c("blue","red"),pch=15,cex=0.8)
+```
+<p style="text-align: justify;">Au premier abord, la relation entre nos deux variables n'est pas évidente. Ce qui nous saute aux yeux en revanche, c'est la différence flagrante qu'il existe entre le temps alloué au travail personnel et celui alloué aux réseaux sociaux. En effet, les étudiants ont l'air de consacrer beaucoup plus de leur temps à scroller ou à discuter sur les réseaux plutôt que la tête dans leurs bouquins. Étrange non ?</p> 
+<p style="text-align: justify;">Voyons maintenant si ces deux variables sont tout de même corrélées. Pour cela, nous avons réalisé un test de significativité, dont les hypothèses sont:</p>
+
+<br>
+H0:il n'y a pas de lien entre le temps de travail personnel et le temps passé sur les réseaux sociaux   
+H1: il y a un lien entre le temps de travail personnel et le temps passé sur les réseaux sociaux
+
+<br>
+
+```{r}
+moyenne_test_auto(df$temps_travail,df$temps_reseaux*7) |> kable(align = "c") |> kable_styling(full_width = F) 
+```
+
+<br>
+<p style="text-align: justify;">La p-value est de `r t.test(df$temps_travail,df$temps_reseaux)$p.value`. On ne peut donc pas rejeter H0, on ne peut pas établir de lien entre le temps de travail personnel et le temps passé sur les réseaux. Ces résultats semblent tout de même contradictoire de ce que l'on pourrait s'attendre. En effet, on pourrait penser que plus les étudiants passent de temps sur les réseaux, moins ils en consacreraient pour leur révisions. Cela pourrait s'expliquer avec le peu d'observations dont on dispose avec ce sondage. De plus, on peut ajouter que le sondage a été publié en septembre et donc qu'à cette période les étudiants avaient moins de travail personnel à fournir. </p>
+
+
+<br>
+
+# Qu'en est-t-il des applications ?
+
+<p style="text-align: justify;">Il existe aujourd'hui des milliers, si ce n'est des millions d'applications disponibles en un clic sur notre téléphone. Nous avons interrogé notre population sur leur application favorite, leur laissant le choix entre ce qui est, pour nous, les applications les plus populaires du moment. On y retrouve : </p>
+
+- Instagram : service de partage de photos et de vidéos, dans un rayon plutôt large.
+- Snapchat : service de partage de photos et de vidéo, dans un rayon plutôt restreint.
+- TikTok : service de partage de courtes vidéos, le plus souvent à but divertissant.
+- Facebook : plateforme de partage de photos et de vidéos, destiné à un cercle proche.
+- X (Twitter) : plateforme de blog personnel et source d'information.
+- LinkedIn : blog à usage professionnel, mais n'ayant qu'une personne ayant choisi LinkedIn comme application favorite nous l'avons regroupé dans "Autre".
+- Autre : il peut s'agir de toute autre application, ou aucune dans le cas où l'étudiant n'utilise pas les réseaux sociaux.
+
+<p style="text-align: justify;">Nous allons regarder si nous pouvons remarquer certaines tendances en terme de préférences d'utilisation des application d'abord en fonction du genre, puis en fonction de l'âge. </p>
+
+## Préférence des applications selon le Genre ?
+
+Regardons la répartition des applications favorites de notre échantillon en fonction du genre :
+```{r graphique répartition Compétition}
+ggplot(df) + aes(x=fct_rev(fct_lump_lowfreq(fct_infreq(Réseau.social.le.plus.utilisé))),fill=Genre)+
+  geom_bar(col="Black",alpha=0.8,position = "dodge")+coord_flip()+
+  labs(title = "Répartition des répondants en fonction de leur \n reseaux sociaux .",y="Effectifs",x="")+scale_fill_manual(values = Couleur[1:2])+
+  theme_minimal() 
+
+```
+
+<p style="text-align: justify;">Les résultats sont à peu près homogènes entre les deux sexes, mis à part pour l'application Twitter qui semble être plus appréciée par la gente masculine. </p>
+<p style="text-align: justify;">Il serait intéressant de voir s'il y existe un lien entre le genre et le réseau social favori. Pour cela, nous avons réalisé un test d'indépendance dont les hypothèses sont les suivantes :</p>
+
+<br>
+
+H0: il n'y a pas de lien entre le genre et le fait d'utilisé un réseau spécifique    
+H1: il y a un lien entre le genre et le fait d'utilsé un réseau spécifique  
+
+
+```{r}
+indep_test_auto(df$Genre,df$Réseau.social.le.plus.utilisé) |> kable(align = "c") |> kable_styling(full_width = F)
+```
+
+<br>
+
+<p style="text-align: justify;">Au vu des résultats, on observe qu'au seuil de 5% que la p-value est inférieure au minimum théorique. On garde donc l'hypothèse nulle H0 ; il n'existe pas de lien entre le genre et les préférences en termes de réseaux sociaux.</p>
+
+
+
+## Et maintenant en fonction de l'Âge ?
+
+<p style="text-align: justify;">Nous avons vu que le genre n'influe pas significativement sur les préférences en terme de réseaux sociaux, mais qu'en est-il de l'âge ? Afin de vérifier cela, nous avons segmenté notre population en 3 groupes : </p>
+
+- Groupe 1 : individus de 16 à 18 ans.
+- Groupe 2 : individus de 19 à 21 ans.
+- Groupe 3 : individus de 22 ans et plus.
+
+Nous obtenons le classement suivant :
+```{r,include=FALSE}
+gr1<-df$Réseau.social.le.plus.utilisé[df$Age<=18]
+gr2<-df$Réseau.social.le.plus.utilisé[df$Age>18&df$Age<22]
+gr3<-df$Réseau.social.le.plus.utilisé[df$Age>=22]
+
+table(gr1)
+table(gr2)
+table(gr3)
+
+clsmtgr1=c("Instagram","Snapchat","TikTok","Twitter","Autre")
+clsmtgr2=c("Instagram","Snapchat","TikTok","Twitter","Autre")
+clsmtgr3=c("Instagram","Twitter","Facebook","Snapchat/TikTok","Autre")
+
+tableau <- data.frame(
+  Groupe1 = clsmtgr1,
+  Groupe2 = clsmtgr2,
+  Groupe3 = clsmtgr3
+)
+tableau2<-t(tableau)
+colnames(tableau2) <- paste("N°", 1:5, sep = "")
+
+
+```
+
+```{r}
+kable_styling(
+  kable(
+    tableau2,
+    align = "c"),
+  full_width = FALSE,
+  position = "center",
+  bootstrap_options = c("striped","bordered")
+)
+  
+```
+
+<p style="text-align: justify;">Tout d'abord, on remarque une hégémonie d'Instagram qui se classe en tête de nos 3 groupes. On peut alors dire que, quel que soit l'âge, cette application sait être appréciée, utile et donc très présente dans le quotidien des étudiants.</p> 
+<p style="text-align: justify;">De plus, on constate que les classements des groupes 1 et 2 sont identiques. Nous pouvons donc en conclure qu'entre 16 et 21 ans, les préférences des étudiants en terme de réseaux sociaux sont sensiblement identiques. </p>
+
+<p style="text-align: justify;">Cependant le classement du groupe 3, plus âgé, en devient intéressant. Dans un premier temps, on voit l'apparition de Facebook qui n'a pas été cité une seule fois chez les 2 premiers groupes. Ensuite, on constate la baisse au classement des applications Snapchat et TikTok, ainsi qu'une augmentation au classement de Twitter. </p>
+
+<p style="text-align: justify;">Les préférences en terme d'applications pourraient donc s'expliquer par l'âge des individus, les plus âgés favorisant l'utilisation d'applications dites "anciennes" comme Facebook ou encore celles qui sont source d'information comme Twitter. Du côté des plus jeunes, leur utilisation des réseaux a l'air d'être centrée sur le divertissement et le lien social que permettent des applications comme Snapchat ou TikTok. </p>
+
+
+
+
+
+
+# Analyse plus poussée du temps passé sur les réseaux
+
+<p style="text-align: justify;">Nous nous sommes demandé si nous pouvions établir un lien entre le temps d'utilisation des réseaux sociaux selon le genre et l'âge des individus. Pour cela, nous avons défini 3 classes de "degré" d'utilisation des réseaux sociaux, paramétrés comme suit : </p>
+
+- Faible utilisation : entre 0 et 1h30 de réseaux sociaux par jour.
+- Moyenne utilisation : entre 1h30 et 4h de réseaux sociaux par jour.
+- Forte utilisation : plus de 4h de réseaux sociaux par jour.
+
+<p style="text-align: justify;">Nous allons développer cela dans ce dernier axe, dans un premier temps en fonction du genre et ensuite en fonction de l'âge.  </p>
+
+## Comparaison en fonction des genres
+
+<p style="text-align: justify;">Peut-on discerner une certaine tendance d'utilisation des réseaux sociaux en fonction du genre ? Afin de répondre à cette interrogation, nous avons réalisé le graphique suivant : </p>
+
+```{r}
+df$utilisation<-0
+df$utilisation<-ifelse(df$temps_reseaux<1.50,"Faible",
+                       ifelse(df$temps_reseaux>=1.50 & df$temps_reseaux<4,"Moyenne","Forte"))
+```
+
+```{r }
+ggplot(df) + aes(x=utilisation,fill=Genre)+
+  geom_bar(col="Black",alpha=0.8,position = "dodge")+
+  labs(title = "Utilisation des réseaux sociaux selon le genre." ,y="Effectifs",x="Utilisation des réseaux sociaux")+scale_fill_manual(values = Couleur[1:2])+coord_flip()+
+  theme_minimal() 
+```
+
+```{r,include=FALSE}
+mean(df$temps_reseaux[df$Genre=="Masculin"])
+mean(df$temps_reseaux[df$Genre=="Féminin"])
+
+```
+
+<p style="text-align: justify;">On observe que pour les deux genres environ la moitié des individus se trouvent dans la catégorie utilisation "moyenne" des réseaux sociaux. De plus, on peut noter que la part des femmes qui utilisent peu les réseaux est très faible comparativement à pour les hommes.</p>
+<p style="text-align: justify;">Il serait intéressant de regarder la moyenne de temps de réseaux sociaux pour chaque genre. On obtient les moyennes suivantes : </p>
+
+- Moyenne pour les Femmes : `r round(mean(df$temps_reseaux[df$Genre=="Féminin"]),2)`
+- Moyenne pour les Hommes : `r round(mean(df$temps_reseaux[df$Genre=="Masculin"]),2)`
+
+<p style="text-align: justify;">Les moyennes des deux groupes se classent dans la catégorie d'utilisation moyenne des réseaux sociaux, néanmoins on observe que la moyenne pour les femmes est significativement plus élevée que pour les hommes. En effet, les femmes passent en moyenne 0,73 heures de temps de plus sur les réseaux, soit environ 45 minutes de plus par jour.</p>
+
+## Comparaison en fonction de l'âge
+
+<p style="text-align: justify;">Regardons maintenant si nous pouvons constater certains phénomènes d'utilisation des réseaux sociaux en fonction de l'âge des individus. Nous réutiliserons les classes d'âge que nous avons créées précédemment (cf 3.2) afin d'observer si une tranche d'âge semble se démarquer. Nous obtenons le graphique suivant :</p>
+
+```{r include=FALSE}
+d1<-df
+quantiles <- quantile(d1$Age, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
+d1$Age_Category <- cut(d1$Age, breaks = quantiles, labels = c("16-18 ans", "18-21 ans", "22+ ans"), include.lowest = TRUE)
+```
+
+```{r}
+ggplot(d1, aes(x = utilisation, fill = Age_Category)) +
+  geom_bar(color = "black") +
+  labs(title = "Utilisation des Réseaux Sociaux", x = "Utilisation", y = "Nombre d'individus")+
+  facet_wrap(~ Age_Category)
+```
+
+<p style="text-align: justify;">En un coup d'oeil, on voit que les individus de 16 à 18 ans ont tendance à passer moyennement et fortement de temps sur les réseaux sociaux, tandis que les deux autres classes ont elles tendance à passer moyennement ou faiblement de temps sur les réseaux sociaux. On pourrait donc penser que plus un étudiant est jeune, plus il passera de temps sur les réseaux sociaux. Pour vérifier cela, nous avons réalisé un test de corrélation entre l'âge et le temps alloué aux réseaux sociaux.</p>
+<br>
+
+```{r} 
+correlation_result <-cor.test(df$Age, df$temps_reseaux, method = "pearson") 
+tableau_resultats_correlation <- data.frame(
+  Coefficient_de_correlation = correlation_result$estimate,
+  Test_statistique = correlation_result$statistic,
+  Degrés_de_liberté = correlation_result$parameter,
+  P_value = correlation_result$p.value
+) 
+
+kable(tableau_resultats_correlation)
+
+```
+
+<br>
+
+<p style="text-align: justify;">Au vu du coefficient de corrélation obtenu, on peut dire qu'il y a une corrélation négative d'environ -0,1 entre l'âge et le temps passé sur les réseaux sociaux. Cela valide le fait que plus l'étudiant est âgé, moins il passera de temps sur les réseaux sociaux, et inversement. </p>
+
+<br>
+
+# Conclusion 
+
+<p style="text-align: justify;">On obtient donc une image globale de la manière dont les réseaux sociaux intéragissent avec divers aspects de la vie quotidienne des étudiants, tels que leur temps de travail personnel, leur choix de réseaux sociaux et comment cela peut varier en fonction de l'âge et du genre.</p>
+<p style="text-align: justify;">Les résultats de notre étude nous montrent que plus les étudiants passent de temps sur les réseaux sociaux et plus ils délaisseront en partie les révisions. De plus la majorité des étudiants semble avoir comme application favorite Instagram qui est un blog personnel, on interprète donc cela comme une façon pour eux d'étendre leurs intéractions sociales en ligne avec leur cercle d'amis.</p>
+<p style="text-align: justify;">D'autre part le genre et l'âge étaient des points essentiels à soulever dans notre problématique, notre étude nous montre que les femmes passent plus de temps sur les réseaux que les hommes, mais ont néanmoins relativement les mêmes préférences en terme d'applications.</p>
+
+<p style="text-align: justify;">Ainsi nous avons vu que les réseaux sociaux occupent une place non-négligeable dans la vie quotidienne d'un étudiant notamment dans sa vie sociale, mais au détriment du temps de révisions. Cependant, nous n'avions pas à disposition les résultats scolaires des étudiants de notre échantillon. Il était donc impossible pour nous de répondre à la question que tout le monde se pose : Est-ce que le temps passé sur les réseaux sociaux influe négativement les résultats scolaires des étudiants ?</p>
+
+<br>
+
+# Remerciements : 
+
+Nous espérons que vous aurez pris autant de plaisir à lire notre article que nous à le faire.
+Merci !
+
+<p style="text-align: justify;">PS : Désolé de vous avoir dérangé dans votre bureau à de multiples reprises, mais nous vous appréçions beaucoup. Je sais que vous aimeriez garder Zaccharie encore un an de plus, mais il a vraiment besoin d'une bonne note à ce projet pour ENFIN prendre son envol.</p>
+
+<br>
+<br>
+```{r,fig.align='center'}
+knitr::include_graphics("ilovefs-postcard.webp")
+```
+
+
+
+
+
+
+

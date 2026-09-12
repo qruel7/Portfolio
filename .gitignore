@@ -1,0 +1,16 @@
+# secrets
+.env
+
+# R
+.Rproj.user/
+.Rhistory
+*.RData
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# fichiers système
+.DS_Store
+Thumbs.db

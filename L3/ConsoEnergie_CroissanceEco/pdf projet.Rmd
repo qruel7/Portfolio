@@ -1,0 +1,374 @@
+---
+lang: "fr"
+output: pdf_document
+geometry:
+  - top=2.5cm
+  - bottom=2.5cm
+  - right=2cm
+  - left=2cm
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
+```
+
+
+\begin{titlepage}
+\thispagestyle{empty}
+	
+	\begin{figure}
+		\centering
+		\vspace{-1cm}
+		\includegraphics[width=8cm]{utlogo.png} 		
+	\end{figure}
+
+	\definecolor{col}{RGB}{69,165,157}	
+	
+	\begin{center}	
+		{\vspace{1cm}
+		  \huge \bf Projet Macro-économétrique\\
+			\vspace{0.5cm}
+			\Large Consommation d'énergie et croissance économique\\
+			\vspace{1.5cm}
+			\large Zaccharie Ennya | Quentin Ruel | Thomas Barat | Bastien Coureau | Pierre Hardy
+			
+			\vspace{0.5cm}
+			
+			\begin{figure}
+		    \centering
+		    \setlength{\fboxsep}{0pt}
+		    \setlength{\fboxrule}{3pt}
+		    \fcolorbox{col}{col}{\includegraphics[height=7cm,width=25cm]{image2.png}} 		
+	    \end{figure}
+	    
+			\vspace{0.5cm}
+			\large \tableofcontents
+			\vfill	
+			 
+			\pagebreak}
+	\end{center}
+	
+\end{titlepage}
+
+
+# \underline{Introduction :}
+
+\vspace{12pt}
+
+La consommation d’énergie représente la somme totale d’énergie consommée par la société, tels que les ménages, les industries ou l’agriculture par exemple. De l’autre côté la croissance économique correspond à l’augmentation de la production de biens et de services de l’ensemble de l’économie sur une période donnée. Ici nous nous pencherons sur la relation entre la consommation d’énergie et la croissance économique, on pourra définir cela comme l’interaction dynamique entre les besoins énergétiques d’une société et les implications de cette consommation sur l’économie. Pour ce faire, nous allons nous baser sur des articles et des mémoires (qui seront en bibliographie) réalisés sur ce sujet afin d’explorer comment la croissance économique stimule la demande d’énergie, et inversement.
+
+De notre côté, nous pensons qu'il existe une relation positive entre la consommation d'énergie et la croissance économique. Nous nous baserons dans un premier temps sur une revue de littérature, suivie d'une étude économétrique qui nous permettra de valider ou de réfuter cette hypothèse. 
+
+\vspace{12pt}
+
+# \underline{Revue de littérature :}
+
+\vspace{12pt}
+
+Tout d’abord l’ensemble des articles semblent montrer que la consommation d’énergie joue un rôle majeur dans l’activité humaine de nos jours. Nous sommes passés d’une civilisation agricole à une civilisation industrielle comme nous l’explique l’article Journal of Environmental Management. En effet, les avancées technologiques et industrielles telles que la machine à vapeur de Watt en 1778, l’invention de l’ampoule à incandescence en 1879 par Thomas Edison ou encore l’apparition d’internet au début des années 1960 ont permis l’évolution de notre société, et d’un autre côté l’augmentation de notre consommation d’énergie. Au fil des années/siècles ces avancées ont fait croître la consommation d’énergie par tête car ces technologies en sont dépendantes. Suite à cette augmentation de la consommation énergétique liée à la nouvelle production de biens « modernes », les économistes s’interrogent de plus en plus sur le lien entre la consommation d’énergie et la croissance économique. Arthur Kraft et John Kraft avec leur article On the Relationship Between Energy and GNP: A Reexamination publié en 1978 vont étudier la relation entre la consommation d’énergie et le PNB (Produit National Brut). Cette étude menée par les deux hommes sera la base de la suite des recherches sur ce sujet et introduira ainsi l’ensemble des tests économétriques qui ont permis de mettre à la lumière le lien entre ces deux facteurs.
+
+\vspace{8pt}
+
+En effet, les différents modèles et tests économétriques réalisés au travers des nombreuses études qu’il existe sur le sujet vont permettre de quantifier la dépendance de la croissance économique par rapport à la consommation d’énergie, et d’autre part répondre aux deux questions suivantes :
+
+- Consomme-t-on plus d’énergie du fait de la croissance économique ? 
+- Y a-t-il une croissance économique car on consomme plus d’énergie ? 
+
+Pour ce faire, les économistes et économètres vont mettre en place une stratégie économétrique pour essayer de trouver s’il y a bel et bien corrélation et plus précisément cointégration entre ces deux variables, pour ainsi être en mesure d’estimer l’élasticité de la production par rapport à la consommation d’énergie. 
+
+\vspace{8pt}
+
+Les avancées de ces études économétriques menées par des économistes et économètres tels que Apergis et Payne en 2009, Altinay et Karagol en 2005, Sadorsky en 2012 ou encore Gaël Giraud et Zeynep Kahraman en 2014 suivent des modèles similaires. Pour commencer on peut se baser sur une fonction de production classique de type Cobb Douglass comme celle-ci : 
+
+\vspace{8pt}
+\begin{center}
+$Y = AK^\alpha L^\beta EC^\gamma e^{c+\mu}$
+\end{center}
+\vspace{8pt}
+
+Pour ensuite en faire un modèle économétrique de la forme suivante :
+
+\vspace{8pt}
+\begin{center}
+$LnY_t = c + \alpha LnK_t + LnL_t + LnEC_t + \mu _t$
+\end{center}
+\vspace{8pt}
+
+Ce modèle permet d’obtenir une représentation graphique des résultats obtenus à partir d’une certaine base de données, telle que « US data » utilisée par les frères Kraft. En appliquant la méthode des MCO ou les tests de corrélation de Granger, ce modèle a permis aux économètres d’en venir aux mêmes conclusions au cours de leurs recherches : la consommation d’énergie et la croissance économique sont cointégrés positivement, c’est-à-dire qu’une augmentation de la consommation d’énergie va augmenter la croissance économique, et cela avec une certaine stabilité dans le temps. D’autre part, ils trouvent qu’il y a un double lien entre les variables que l’on peut expliquer de cette manière : la consommation d’énergie favorise la croissance économique mais aussi la croissance économique affecte positivement la consommation d’énergie. Et enfin les études de Gaël Giraud et Zeynep Kahraman montre une élasticité énergie/Pib de 60%, en d’autres termes lorsque la consommation d’énergie augmente de 10 % le PIB augmente en moyenne de 6%.
+
+\vspace{8pt}
+
+Enfin, les études sur lesquelles nous nous sommes basés semblent chacune ressortir une certaine inquiétude vis-à-vis du lien entre la consommation d’énergie et la croissance économique. En effet si l’économie repose sur l’énergie qui elle-même repose sur des ressources non-renouvelables, alors la question sur la construction d’une économie durable et prospère sans ces énergies finies devient vitale. De plus les problèmes de réchauffement climatique ainsi que du développement durable sont au cœur des discussions tant dans les sphères politiques et scientifiques qu’économiques et représentent un véritable défi ainsi qu’une priorité à laquelle personne ne peut échapper. En effet nos auteurs semblent s’interroger sur une façon de gérer notre consommation d’énergie vis-à-vis de la protection climatique sans faire obstacle à la croissance économique, en sachant qu’il est nécessaire de réduire de 80% nos émissions de carbone voire la neutralité de son émission d’ici 2050.
+
+\vspace{12pt}
+
+Ainsi, cette revue de littérature souligne l’importance de la consommation d’énergie dans le contexte de la croissance économique. En effet, la consommation de plus en plus intensive a accompagné notre histoire depuis toujours, en rencontrant un grand sursaut au cours des deux derniers siècles, notamment du fait de l’évolution des modes de production et de consommation. De plus, les avancées technologiques et industrielles ont conduit à une augmentation constante de la demande énergétique au fil du temps, reflétant ainsi la transition de notre société vers une économie de plus en plus énergivore.
+
+Les économistes et économètres, avec de multiples recherches et études ont mis en place divers modèles économétriques pour analyser cette relation. Parmi ces modèles, la fonction de production de type Cobb Douglass a été utilisée pour représenter la dépendance de la production économique à la consommation d’énergie. D’autre part, des tests économétriques tels que la méthode des MCO et tests de corrélation ont été utilisés pour évaluer la nature de la relation entre consommation d’énergie et croissance économique. Suite à ces travaux, les résultats des études convergent vers une conclusion commune : il existe une corrélation bilatérale positive entre la consommation d’énergie et la croissance économique. En d’autres termes, une augmentation de la consommation d’énergie provoque une augmentation de la croissance économique et vice versa.
+
+\vspace{8pt}
+
+En résumé, les conclusions de la revue de la littérature confirment l’existence d’une relation significative entre consommation d’énergie et croissance économique. Néanmoins, au cœur d’un monde au bord du gouffre écologique et extrêmement dépendant des énergies fossiles, néfastes pour notre planète, les économistes font face à un enjeu qui semble presque irréalisable : garantir la croissance économique tout en réduisant considérablement notre consommation énergétique.
+
+\vspace{12pt}
+
+# \underline{Étude économétrique :}
+
+\vspace{12pt}
+
+Dans cette section, suite à la revue de litérature ci-dessus nous allons maintenant chercher à valider via une étude économétrique, l'hypothèse selon laquelle il existe une relation positive bilatérale entre croissance économique et consommation d'énergie.
+
+\newpage
+
+Nous avons utilisé une base de données créée par nos soins via les données disponibles sur le site de la Banque Mondiale. Pour ce faire nous avons sélectionné plusieurs variables exlicatives telles que :
+
+- le PIB ($Y$)
+- le capital ($K$)
+- la population, qui équivaut au travail ($L$)
+- la consommation totale d'énergie ($EC$)
+
+\vspace{8pt}
+
+Afin d'avoir une vu d'ensemble, on a utilisé des données représentant le monde dans sa globalité. De plus, nous avons sélectionnés des données entre 1974 et 2014 afin d'avoir une série temporelle assez importante. Il est aussi important de souligné le fait qu'à partir de 2014 des données sur le PIB ou la consommation d'énergie totale sont manquantes, on peut expliquer cela par un manque de coopération, de transparence, d'instabilité politique de certains pays ou même de changements méthodologiques ou d'un retard dans la collecte des données.
+
+Nous allons donc, dans un premier temps, montrer grâce à nos données qu'il existe une corrélation bilatérale positive entre la consommation d'énergie et la croissance économique.
+
+Pour ce faire, nous allons nous utiliser le modèle vu dans la revue ainsi qu'un deuxième modèle similaire mettant en variable dépendante la consommation d'énergie :
+
+\vspace{8pt}
+\begin{center}
+$LnY_t = c + \alpha LnK_t + LnL_t + LnEC_t + \mu _t$ et $LnEC_t = c + \alpha LnK_t + LnL_t + LnY_t + \mu _t$
+\end{center}
+\vspace{8pt}
+
+\vspace{8pt}
+
+```{r, include=FALSE}
+library(readxl)
+data <- read_excel("data_reg1.xlsx")
+
+library(knitr)
+library(kableExtra)
+library(stargazer)
+library(patchwork)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(ggpubr)
+
+str(data)
+attach(data)
+
+reg <- lm(log(data$`GDP (constant 2015 US$)`)~log(data$`Energy use (kg of oil equivalent per capita)`)+log(data$`Population, total`)+log(data$`Gross capital formation (current US$)`)+log(data$`Energy use (kg of oil equivalent per capita)`^2),data=data)
+
+reg2 <- lm(log(data$`Energy use (kg of oil equivalent per capita)`)~log(data$`GDP (constant 2015 US$)`)+log(data$`GDP (constant 2015 US$)`^2)+log(data$`Population, total`)+log(data$`Gross capital formation (current US$)`),data=data)
+
+pred_reg=predict(reg,data)
+pred_reg2=predict(reg2,data)
+
+graph<-ggplot(data,aes(x=log(`Energy use (kg of oil equivalent per capita)`),y=pred_reg))+
+  geom_point(size=1,color="#FCB826")+
+  theme(panel.background = element_rect(fill="transparent"),
+        panel.grid.major = element_line(color="grey"),
+        panel.grid.minor = element_line(color="grey"))+
+  xlab("Energy use (kg of oil per capita)")+
+  ylab("World GDP (constant 2015 US$)")+
+  geom_smooth(method=lm, color="#45A59D", se=FALSE, formula=y~poly(x,2))
+
+graph2<-ggplot(data,aes(x=log(`GDP (constant 2015 US$)`),y=pred_reg2))+
+  geom_point(size=1,color="#45A59D")+
+  theme(panel.background = element_rect(fill="transparent"),
+        panel.grid.major = element_line(color="grey"),
+        panel.grid.minor = element_line(color="grey"))+
+  xlab("World GDP (constant 2015 US$)")+
+  ylab("Energy use (kg of oil per capita)")+
+  geom_smooth(method=lm, color="#FCB826", se=FALSE, formula=y~poly(x,2))
+```
+
+```{r}
+titre<-"Graphique mettant en lumière la relation bilatérale \n entre consommation d'énergie et croissance économique"
+Titre <- textGrob(titre, gp = gpar(fontface = "bold"))
+graphs<-ggarrange(graph+graph2)
+grid.arrange(graphs, top=Titre)
+```
+
+\vspace{12pt}
+
+On peut effectivement observer une corrélation positive à l'échelle mondiale entre la consommation d'énergie et le PIB, et inversement. L'augmentation du PIB caractérisant la croissance économique, ces deux régressions nous permettent ainsi de valider notre hypothèse de départ : une augmentation de la consommation d'énergie engendre une augmentation de la croissance économique. 
+
+
+\vspace{8pt}
+
+
+Afin de démontrer cette relation sous un autre angle, on peut se baser sur des faits historiques tels que les principaux chocs pétroliers (1973, 1979 et 2008) afin d'en analyser l'impact. L'augmentation du prix du pétrole vient enchérir les coûts de production, augmentant les prix et diminuant les profits. Le pouvoir d'achat diminuant, la consommation et donc la demande diminue également et advient un choc de demande. Ainsi cette crise pèse à la baisse sur la croissance tout en créant de l'inflation. 
+
+Par exemple, pour l'économie française, un choc pétrolier représente une ponction d'environ 3% du PIB sur son économie. Pour donner des chiffres, la France passera d'une croissance moyenne de 5% entre 1950 et 1973 à 2.1% entre 1973 et 2000. 
+
+\vspace{8pt}
+
+Nous avons donc choisi de superposer sur un même graphique le PIB par tête et la consommation d'énergie par tête à l'échelle mondiale sur le graphique ci-dessous. Afin que les deux courbes se rapprochent et ainsi faciliter la lecture, nous avons manipulé les données de consommation d'énergie en les multipliant par 4. Nous obtenons les résultats suivant :  
+
+\vspace{12pt}
+
+```{r,include=FALSE}
+data2<-read_xlsx("data_tqt.xlsx")
+data2$`GDP per capita (constant 2015 US$)`<-as.numeric(data2$`GDP per capita (constant 2015 US$)`)
+data2$`Energy use (kg of oil equivalent per capita)`<-as.numeric(data2$`Energy use (kg of oil equivalent per capita)`)
+
+attach(data2)
+plot1 <- ggplot(data2[c(12:55),]) +
+  geom_line(aes(x = Time, 
+                y = `GDP per capita (constant 2015 US$)`,
+                color = "PIB")) +
+  geom_line(aes(x = Time, 
+                y = `Energy use (kg of oil equivalent per capita)`*4,
+                color = "Utilisation d'énergie")) +
+  scale_color_manual(values = c("#45A59D","#FCB826"), 
+                     labels = c("PIB par tête", "Utilisation d'énergie \n(pétrole)")) +
+  guides(color = guide_legend(override.aes = list(size = 10))) + 
+  geom_segment(aes(x = 1970, xend = 1970, y = 4750, yend = 11000), 
+               arrow = arrow(type = "open", length = unit(0.2, "inches")), size=0.7,
+               color = "black") +
+  geom_segment(aes(x = 1970, xend = 2015, y = 4750, yend = 4750), 
+               arrow = arrow(type = "open", length = unit(0.2, "inches")), size=0.7,
+               color = "black")+
+  xlab("Années")+
+  ylab("")+
+  labs(color="")+
+  theme(panel.background = element_rect(fill="transparent"),
+        panel.grid.major = element_line(color="grey"),
+        panel.grid.minor = element_line(color="grey"))+ 
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())+
+  geom_vline(xintercept = c(2008, 1973, 1979), linetype = "dashed", color = "red") +
+  annotate(geom = "text", x = c(2008, 1973, 1979), y = 8250, label = c("2008", "1973", "1979"), color = "red3", size=4)
+
+titre2<-"Évolution mondiale annuelle de \n la consommation d'énergie (pétrole) et du PIB par tête"
+Titre2 <- textGrob(titre2, gp = gpar(fontface = "bold"))
+graphs2<-ggarrange(plot1)
+```
+
+```{r}
+grid.arrange(graphs2, top=Titre2)
+```
+
+\vspace{12pt}
+
+On constate que les chocs pétroliers associés aux années 1973, 1979 et 2008 ont entraîné une diminution de la consommation d'énergie ainsi qu'une baisse ou un ralentissement de la croissance du PIB par tête à l'échelle internationale. 
+
+Cela confirme une nouvelle fois notre hypothèse de départ : la croissance économique des nations du monde entier est intimement liée à la consommation d'énergie, et plus particulièrement des énergies non-renouvelables. Au vu de ces résultats, nous nous sommes demandé si une transition énergétique plus respectueuse envers l'environnement est réellement possible et envisageable. Nous allons explorer brièvement cette problématique dans la partie suivante, sans traiter le sujet en profondeur. 
+
+\vspace{12pt}
+
+# \underline{Viabilité de la transition énergétique :}
+
+\vspace{12pt}
+
+Dans cette section, nous allons analyser l'impact de la transition écologique sur le PIB afin de déterminer si cela provoque un effet positif (ou négatif) sur l'économie d'un pays. Pour ce faire, nous avons sélectionné un ensemble de 18 pays piochés dans chaque continent afin d'obtenir des résultats complets et généraux. Ces pays sont les suivant :
+
+- États-Unis
+- Argentine
+- France
+- Allemagne
+- Islande
+- Suède
+- Russie
+- Rép. Dém. Congo
+- Ethiopie
+- Afrique du Sud
+- Egypte
+- Arabie Saoudite
+- Chine
+- Inde
+- Japon
+- Corée du Sud
+- Indonésie
+- Australie
+
+La transition écologique peut se faire sous la directive de différentes politiques économiques, telles que des normes d'efficacité énergétique, des taxes sur les émissions de carbone, des subventions aux énergies renouvelables ou encore des réglementations sur les émissions industrielles. Ainsi, pour distinguer les pays ayant entamé une transition écologique, nous avons créé une indicatrice prenant la valeur 1 si plus de 40% de l'énergie consommée est renouvelable, et 0 sinon. 
+
+Nous avons donc réalisé un nouveau modèle économétrique, dont la forme et les résultats sont présentés ci-dessous :
+
+```{r,include=FALSE}
+data3 <- read_excel("DataExcel3.xlsx")
+
+data3$BonneVoie <- ifelse(data3$`Renewable energy consumption (% of total final energy consumption)`> 40, 1, 0)
+
+str(data3)
+data3$`Energy use (kg of oil equivalent) per $1,000 GDP (constant 2017 PPP)`<-as.numeric(data3$`Energy use (kg of oil equivalent) per $1,000 GDP (constant 2017 PPP)`)
+data3$`GDP (constant 2015 US$)`<-as.numeric(data3$`GDP (constant 2015 US$)`)
+data3$`GDP growth (annual %)`<-as.numeric(data3$`GDP growth (annual %)`)
+data3$`GDP per capita (constant 2015 US$)`<-as.numeric(data3$`GDP per capita (constant 2015 US$)`)
+data3$`GDP per capita growth (annual %)`<-as.numeric(data3$`GDP per capita growth (annual %)`)
+data3$`Imports of goods and services (constant 2015 US$)`<-as.numeric(data3$`Imports of goods and services (constant 2015 US$)`)
+data3$`Inflation, consumer prices (annual %)`<-as.numeric(data3$`Inflation, consumer prices (annual %)`)
+data3$`Renewable energy consumption (% of total final energy consumption)`<-as.numeric(data3$`Renewable energy consumption (% of total final energy consumption)`)
+
+
+
+attach(data3)
+reg0<-lm(log(`GDP growth (annual %)`)~log(`Population, total`)+log(`Imports of goods and services (constant 2015 US$)`)+`Inflation, consumer prices (annual %)`+BonneVoie+log(`Energy use (kg of oil equivalent per capita)`)*BonneVoie,data=data3)
+
+test<-lm(log(`GDP per capita (constant 2015 US$)`) ~ log(`Population, total`) +
+log(`Imports of goods and services (constant 2015 US$)`) +
+`Inflation, consumer prices (annual %)` + BonneVoie + log(`Energy use (kg of oil equivalent per capita)`) *
+BonneVoie, data = data3)
+
+regO <- lm(log(PIB)~log(Energy_use)+log(Population)+log(Imports)+log(Inflation)+BonneVoie+ log(Energy_use)*BonneVoie, data=data3)
+```
+
+```{r,results='asis',fig.align='center'}
+stargazer(regO)
+```
+\vspace{12pt}
+
+
+
+\vspace{12pt}
+
+# \underline{Conclusion :}
+
+\newpage
+
+# \underline{Bibliographie :}
+
+\vspace{12pt}
+
+-	https://www.sciencedirect.com/science/article/pii/S1876610211012926
+
+-	https://www.investing.com/analysis/is-it-really-possible-to-decouple-gdp-growth-from-energy-growth_-105712
+
+-	https://www-sciencedirect-com.proxy.scd.univ-tours.fr/science/article/pii/S0301479721014134?via%3Dihub
+
+-	https://www.mdpi.com/1996-1073/14/22/7734
+
+-	https://www.jstor.org/stable/24806805?seq=2
+
+-	https://theshiftproject.org/lien-pib-energie/
+
+-	https://theses.hal.science/tel-02117250
+
+-	https://theses.hal.science/tel-01919645
+
+-	https://www.sciencedirect.com/science/article/pii/S0301421510006609
+
+-	https://www.sciencedirect.com/science/article/pii/S0140988311000417
+
+- https://databank.worldbank.org/source/world-development-indicators#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

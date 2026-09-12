@@ -1,0 +1,335 @@
+---
+title: "Scoring de Crédit - Tableau de Bord"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: 
+      version: 4
+      bootswatch: flatly
+    navbar:
+      - { title: "M1 ESA - Université d'Orléans", align: right }
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(pROC)
+library(DT)
+library(scales)
+
+# -- Données --
+credit <- read_excel("credit_defaut.xlsx")
+
+credit <- credit %>%
+  mutate(
+    defaut_label = factor(defaut_paiement_mois_suivant, 
+                          levels = c(0, 1), 
+                          labels = c("Non-défaut", "Défaut")),
+    sexe_label = factor(sexe, levels = c(1, 2), labels = c("Homme", "Femme")),
+    education_label = factor(niveau_education, 
+                             levels = 0:6,
+                             labels = c("Autre", "Doctorat", "Master", 
+                                        "Licence", "Lycée", "Autre2", "Autre3")),
+    famille_label = factor(situation_familiale,
+                           levels = 0:3,
+                           labels = c("Autre", "Marié(e)", "Célibataire", "Autre2"))
+  )
+
+# -- Modèles --
+formule_sel <- defaut_paiement_mois_suivant ~ plafond_credit_eur + sexe + 
+  niveau_education + situation_familiale + age + retard_paiement_sep_2023 + 
+  retard_paiement_aou_2023 + retard_paiement_juil_2023 + retard_paiement_mai_2023 + 
+  encours_carte_sep_2023_eur + encours_carte_aou_2023_eur + encours_carte_mai_2023_eur + 
+  montant_rembourse_sep_2023_eur + montant_rembourse_aou_2023_eur + 
+  montant_rembourse_juil_2023_eur + montant_rembourse_juin_2023_eur + 
+  montant_rembourse_mai_2023_eur + montant_rembourse_avr_2023_eur
+
+modele_logit  <- glm(formule_sel, data = credit, family = binomial(link = "logit"))
+modele_probit <- glm(formule_sel, data = credit, family = binomial(link = "probit"))
+
+credit$prob_logit  <- predict(modele_logit, type = "response")
+credit$prob_probit <- predict(modele_probit, type = "response")
+
+roc_logit  <- roc(credit$defaut_paiement_mois_suivant, credit$prob_logit, quiet = TRUE)
+roc_probit <- roc(credit$defaut_paiement_mois_suivant, credit$prob_probit, quiet = TRUE)
+
+seuil <- 0.5
+pred_logit <- ifelse(credit$prob_logit > seuil, 1, 0)
+acc_logit <- mean(pred_logit == credit$defaut_paiement_mois_suivant)
+
+# Couleurs
+bleu   <- "#1B3C78"
+rouge  <- "#C84040"
+vert   <- "#2C6E49"
+orange <- "#D4880F"
+gris   <- "#6C757D"
+```
+
+# Vue d'ensemble
+
+## Row {data-height=120}
+
+### Total clients
+
+```{r}
+valueBox(format(nrow(credit), big.mark = " "), icon = "fa-users", color = "primary")
+```
+
+### Taux de défaut
+
+```{r}
+taux <- round(mean(credit$defaut_paiement_mois_suivant) * 100, 1)
+valueBox(paste0(taux, " %"), icon = "fa-exclamation-triangle", color = "warning")
+```
+
+### Âge moyen
+
+```{r}
+valueBox(paste0(round(mean(credit$age), 1), " ans"), icon = "fa-user", color = "info")
+```
+
+### Plafond crédit moyen
+
+```{r}
+valueBox(paste0(format(round(mean(credit$plafond_credit_eur)), big.mark = " "), " EUR"), 
+         icon = "fa-credit-card", color = "success")
+```
+
+## Row {data-height=440}
+
+### Répartition des défauts de paiement
+
+```{r}
+p1 <- credit %>%
+  count(defaut_label) %>%
+  mutate(pct = round(n / sum(n) * 100, 1)) %>%
+  ggplot(aes(x = defaut_label, y = n, fill = defaut_label,
+             text = paste0(defaut_label, "<br>Effectif : ", format(n, big.mark = " "),
+                           "<br>Part : ", pct, " %"))) +
+  geom_col(width = 0.5) +
+  scale_fill_manual(values = c("Non-défaut" = bleu, "Défaut" = rouge)) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(x = "", y = "Effectif") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+
+ggplotly(p1, tooltip = "text") %>% config(displayModeBar = FALSE)
+```
+
+### Taux de défaut selon le retard de paiement (sept. 2023)
+
+```{r}
+p2 <- credit %>%
+  group_by(retard_paiement_sep_2023) %>%
+  summarise(taux = round(mean(defaut_paiement_mois_suivant) * 100, 1),
+            n = n()) %>%
+  ggplot(aes(x = factor(retard_paiement_sep_2023), y = taux,
+             text = paste0("Retard : ", retard_paiement_sep_2023,
+                           "<br>Taux de défaut : ", taux, " %",
+                           "<br>Effectif : ", format(n, big.mark = " ")))) +
+  geom_col(fill = bleu, width = 0.6) +
+  labs(x = "Statut de retard", y = "Taux de défaut (%)") +
+  theme_minimal(base_size = 13)
+
+ggplotly(p2, tooltip = "text") %>% config(displayModeBar = FALSE)
+```
+
+## Row {data-height=440}
+
+### Taux de défaut par profil sociodémographique
+
+```{r}
+tab_sexe <- credit %>%
+  group_by(sexe_label) %>%
+  summarise(taux = round(mean(defaut_paiement_mois_suivant) * 100, 1)) %>%
+  rename(Catégorie = sexe_label) %>%
+  mutate(Variable = "Sexe")
+
+tab_educ <- credit %>%
+  group_by(education_label) %>%
+  summarise(taux = round(mean(defaut_paiement_mois_suivant) * 100, 1)) %>%
+  rename(Catégorie = education_label) %>%
+  mutate(Variable = "Éducation")
+
+tab_fam <- credit %>%
+  group_by(famille_label) %>%
+  summarise(taux = round(mean(defaut_paiement_mois_suivant) * 100, 1)) %>%
+  rename(Catégorie = famille_label) %>%
+  mutate(Variable = "Situation familiale")
+
+tab_all <- bind_rows(tab_sexe, tab_educ, tab_fam)
+
+p3 <- ggplot(tab_all, aes(x = reorder(Catégorie, -taux), y = taux, fill = Variable,
+              text = paste0(Catégorie, " (", Variable, ")",
+                            "<br>Taux de défaut : ", taux, " %"))) +
+  geom_col(width = 0.7) +
+  scale_fill_manual(values = c("Sexe" = bleu, "Éducation" = gris, "Situation familiale" = orange)) +
+  labs(x = "", y = "Taux de défaut (%)", fill = "") +
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+
+ggplotly(p3, tooltip = "text") %>% config(displayModeBar = FALSE)
+```
+
+### Distribution de l'âge selon le statut
+
+```{r}
+p4 <- ggplot(credit, aes(x = age, fill = defaut_label,
+              text = paste0("Âge : ", age, "<br>Statut : ", defaut_label))) +
+  geom_histogram(bins = 30, alpha = 0.7, position = "identity") +
+  scale_fill_manual(values = c("Non-défaut" = bleu, "Défaut" = rouge)) +
+  labs(x = "Âge", y = "Effectif", fill = "Statut") +
+  theme_minimal(base_size = 13)
+
+ggplotly(p4) %>% config(displayModeBar = FALSE)
+```
+
+# Modèle & Performances
+
+## Row {data-height=120}
+
+### AUC Logit
+
+```{r}
+valueBox(round(auc(roc_logit), 4), icon = "fa-chart-line", color = "primary")
+```
+
+### AUC Probit
+
+```{r}
+valueBox(round(auc(roc_probit), 4), icon = "fa-chart-line", color = "info")
+```
+
+### Accuracy Logit
+
+```{r}
+valueBox(paste0(round(acc_logit * 100, 1), " %"), icon = "fa-check-circle", color = "success")
+```
+
+### AIC Logit
+
+```{r}
+valueBox(format(round(AIC(modele_logit), 0), big.mark = " "), icon = "fa-balance-scale", color = "warning")
+```
+
+## Row {data-height=500}
+
+### Courbe ROC : Logit vs Probit
+
+```{r}
+roc_data_logit <- data.frame(
+  FPR = 1 - roc_logit$specificities,
+  TPR = roc_logit$sensitivities,
+  Modèle = "Logit"
+)
+roc_data_probit <- data.frame(
+  FPR = 1 - roc_probit$specificities,
+  TPR = roc_probit$sensitivities,
+  Modèle = "Probit"
+)
+roc_data <- bind_rows(roc_data_logit, roc_data_probit)
+
+p_roc <- ggplot(roc_data, aes(x = FPR, y = TPR, color = Modèle)) +
+  geom_line(linewidth = 1) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey60") +
+  scale_color_manual(values = c("Logit" = bleu, "Probit" = rouge)) +
+  annotate("text", x = 0.65, y = 0.3, 
+           label = paste0("AUC Logit = ", round(auc(roc_logit), 4),
+                          "\nAUC Probit = ", round(auc(roc_probit), 4)),
+           size = 4, color = bleu) +
+  labs(x = "1 - Spécificité (Taux de Faux Positifs)", 
+       y = "Sensibilité (Taux de Vrais Positifs)") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+
+ggplotly(p_roc) %>% config(displayModeBar = FALSE)
+```
+
+### Distribution des probabilités prédites
+
+```{r}
+p_prob <- ggplot(credit, aes(x = prob_logit, fill = defaut_label)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  scale_fill_manual(values = c("Non-défaut" = bleu, "Défaut" = rouge)) +
+  geom_vline(xintercept = 0.5, linetype = "dashed", color = "black") +
+  annotate("text", x = 0.53, y = Inf, label = "Seuil = 0.5", 
+           vjust = 2, hjust = 0, size = 3.5) +
+  labs(x = "Probabilité prédite de défaut", y = "Effectif", fill = "Statut") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+
+ggplotly(p_prob) %>% config(displayModeBar = FALSE)
+```
+
+## Row {data-height=380}
+
+### Coefficients du modèle Logit
+
+```{r}
+coefs <- summary(modele_logit)$coefficients
+df_coefs <- data.frame(
+  Variable = rownames(coefs),
+  Coefficient = round(coefs[, 1], 4),
+  `Écart-type` = round(coefs[, 2], 4),
+  `z-value` = round(coefs[, 3], 2),
+  `p-value` = round(coefs[, 4], 4),
+  Significativité = ifelse(coefs[, 4] < 0.001, "***",
+                    ifelse(coefs[, 4] < 0.01, "**",
+                    ifelse(coefs[, 4] < 0.05, "*",
+                    ifelse(coefs[, 4] < 0.1, ".", ""))))
+)
+rownames(df_coefs) <- NULL
+
+datatable(df_coefs, 
+          options = list(pageLength = 8, scrollX = TRUE, dom = 'ftip',
+                         columnDefs = list(list(className = 'dt-center', targets = 1:5))),
+          rownames = FALSE) %>%
+  formatStyle('p.value',
+              color = styleInterval(0.05, c(vert, rouge))) %>%
+  formatStyle('Significativité',
+              fontWeight = 'bold',
+              color = styleEqual(c("***", "**", "*", ".", ""),
+                                  c(vert, vert, vert, orange, rouge)))
+```
+
+### Récapitulatif des performances
+
+```{r}
+coords_logit  <- coords(roc_logit, "best", best.method = "youden")
+coords_probit <- coords(roc_probit, "best", best.method = "youden")
+
+pred_probit <- ifelse(credit$prob_probit > seuil, 1, 0)
+acc_probit <- mean(pred_probit == credit$defaut_paiement_mois_suivant)
+
+perf_df <- data.frame(
+  Critère = c("AUC", "Accuracy (seuil 0.5)", "Seuil optimal (Youden)",
+              "Sensibilité (seuil optimal)", "Spécificité (seuil optimal)",
+              "AIC", "BIC", "Log-Likelihood"),
+  Logit = c(round(auc(roc_logit), 4),
+            paste0(round(acc_logit * 100, 2), " %"),
+            round(coords_logit$threshold, 4),
+            round(coords_logit$sensitivity, 4),
+            round(coords_logit$specificity, 4),
+            round(AIC(modele_logit), 2),
+            round(BIC(modele_logit), 2),
+            round(logLik(modele_logit), 2)),
+  Probit = c(round(auc(roc_probit), 4),
+             paste0(round(acc_probit * 100, 2), " %"),
+             round(coords_probit$threshold, 4),
+             round(coords_probit$sensitivity, 4),
+             round(coords_probit$specificity, 4),
+             round(AIC(modele_probit), 2),
+             round(BIC(modele_probit), 2),
+             round(logLik(modele_probit), 2))
+)
+
+datatable(perf_df,
+          options = list(pageLength = 10, dom = 't',
+                         columnDefs = list(list(className = 'dt-center', targets = 1:2))),
+          rownames = FALSE) %>%
+  formatStyle(columns = names(perf_df), fontSize = '14px')
+```

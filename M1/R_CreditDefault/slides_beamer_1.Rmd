@@ -1,0 +1,264 @@
+---
+title: "Modélisation de la Probabilité de Défaut de Paiement"
+subtitle: "Analyse par Scoring de Crédit : Approches Logit et Probit"
+author: "Quentin Ruel"
+institute: "Master 1 ESA - Université d'Orléans"
+date: "Avril 2026"
+output:
+  beamer_presentation:
+    theme: "Madrid"
+    colortheme: "seahorse"
+    fonttheme: "professionalfonts"
+    slide_level: 3
+    toc: false
+    fig_caption: true
+header-includes:
+  - \titlegraphic{\raisebox{-0.5\height}{\includegraphics[height=1.5cm]{logo univ orleans.png}} \hspace{1cm} \raisebox{-0.5\height}{\includegraphics[height=2.5cm]{logo esa vertical.jpg}}}
+  - \usepackage{tikz}
+  - |
+    \setbeamertemplate{background}{
+      \ifnum\insertframenumber>1
+        \begin{tikzpicture}[remember picture,overlay]
+          \node[anchor=south east, xshift=-2mm, yshift=1mm] at (current page.south east) {\includegraphics[height=0.9cm]{logo esa horizontal.jpg}};
+        \end{tikzpicture}
+      \fi
+    }
+  - |
+    \setbeamertemplate{footline}{
+      \leavevmode%
+      \hbox{%
+      \begin{beamercolorbox}[wd=.8\paperwidth,ht=2.25ex,dp=1ex,left]{title in head/foot}%
+        \usebeamerfont{title in head/foot}\hspace*{2ex}Modélisation de la Probabilité de Défaut de Paiement
+      \end{beamercolorbox}%
+      \begin{beamercolorbox}[wd=.2\paperwidth,ht=2.25ex,dp=1ex,right]{date in head/foot}%
+        \insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+      \end{beamercolorbox}}%
+      \vskip0pt%
+    }
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.width  = 6,
+  fig.height = 3.5,
+  out.width  = "85%"
+)
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(pROC)
+library(margins)
+
+credit <- read_excel("credit_defaut.xlsx")
+
+credit <- credit %>%
+  mutate(
+    sexe_label = factor(sexe, levels = c(1, 2), labels = c("Homme", "Femme")),
+    education_label = factor(niveau_education, levels = 0:6,
+                             labels = c("Autre","Doctorat","Master","Licence","Lycée","Autre2","Autre3")),
+    defaut_label = factor(defaut_paiement_mois_suivant, levels = c(0,1),
+                          labels = c("Non-défaut", "Défaut"))
+  )
+```
+
+
+### Plan de la présentation
+
+1. Introduction
+2. Analyse descriptive
+3. Modélisation
+4. Performances
+5. Conclusion
+
+### Introduction - Contexte et problématique
+
+- Le **risque de crédit** est un enjeu majeur pour les établissements financiers
+- Le **scoring de crédit** permet d'évaluer la probabilité de défaut d'un emprunteur
+- **Problématique** : dans quelle mesure les caractéristiques socio-économiques et l'historique de remboursement permettent-ils de prédire le défaut de paiement ?
+
+\medskip
+
+**Données** : 30 000 clients, 23 variables explicatives, période avril-septembre 2023
+
+\medskip
+
+**Méthode** : modèles Logit et Probit estimés par maximum de vraisemblance
+
+### Analyse descriptive - Répartition de la variable cible
+
+```{r}
+ggplot(credit, aes(x = defaut_label, fill = defaut_label)) +
+  geom_bar(width = 0.5) +
+  scale_fill_manual(values = c("Non-défaut" = "navyblue", "Défaut" = "darkseagreen3")) +
+  labs(x = "", y = "Effectif", fill = "") +
+  theme_minimal() +
+  theme(legend.position = "none", text = element_text(size = 14))
+```
+
+**22,1 %** de défauts vs **77,9 %** de non-défauts : déséquilibre classique en scoring.
+
+### Analyse descriptive - Facteur clé : le retard de paiement
+
+```{r}
+credit %>%
+  group_by(retard_paiement_sep_2023) %>%
+  summarise(taux_defaut = mean(defaut_paiement_mois_suivant) * 100) %>%
+  ggplot(aes(x = factor(retard_paiement_sep_2023), y = taux_defaut)) +
+  geom_col(fill = "navyblue", width = 0.6) +
+  labs(x = "Statut de retard (sept. 2023)", y = "Taux de défaut (%)") +
+  theme_minimal() +
+  theme(text = element_text(size = 14))
+```
+
+Le taux de défaut passe de **~15 %** (sans retard) à **~80 %** (retard de 3 mois).
+
+### Analyse descriptive - Taux de défaut selon le profil
+
+```{r fig.height=3}
+credit %>%
+  group_by(sexe_label) %>%
+  summarise(taux_defaut = mean(defaut_paiement_mois_suivant) * 100) %>%
+  ggplot(aes(x = sexe_label, y = taux_defaut, fill = sexe_label)) +
+  geom_col(width = 0.5) +
+  scale_fill_manual(values = c("Homme" = "navyblue", "Femme" = "darkseagreen3")) +
+  labs(x = "", y = "Taux de défaut (%)", fill = "") +
+  theme_minimal() +
+  theme(legend.position = "none", text = element_text(size = 14))
+```
+
+Hommes : **~24 %** de défaut vs Femmes : **~21 %**. Niveau d'éducation et situation familiale aussi significatifs.
+
+### Modélisation - Sélection de variables
+
+- Base initiale : **23 variables** avec forte multicolinéarité (encours et remboursements sur 6 mois corrélés à > 0,9)
+- **Procédure stepwise** (critère AIC) : réduction à **18 variables**
+
+\medskip
+
+Variables retenues : profil sociodémographique (5), retards de paiement (4), encours (3), montants remboursés (6)
+
+\medskip
+
+| Critère | Modèle complet | Modèle sélectionné |
+|---------|:--------------:|:------------------:|
+| AIC     | 27 925         | **27 918**         |
+
+### Modélisation - Résultats d'estimation
+
+```{r estimation, results='hide'}
+modele_complet <- glm(defaut_paiement_mois_suivant ~ . - id_client,
+                      data = credit %>% select(-ends_with("_label")),
+                      family = binomial(link = "logit"))
+modele_step <- step(modele_complet, direction = "both", trace = 0)
+formule_sel <- formula(modele_step)
+
+modele_logit <- glm(formule_sel,
+                    data = credit %>% select(-ends_with("_label")),
+                    family = binomial(link = "logit"))
+modele_probit <- glm(formule_sel,
+                     data = credit %>% select(-ends_with("_label")),
+                     family = binomial(link = "probit"))
+```
+
+**Variables les plus significatives (Logit)** :
+
+| Variable | Coef. | Interprétation |
+|----------|:-----:|----------------|
+| Retard sept. | +0,578 | $\times$ 1,78 l'odds de défaut |
+| Situation familiale | -0,154 | Réduit le risque |
+| Sexe (femme) | -0,108 | Risque inférieur |
+| Éducation | -0,101 | Plus diplômé = moins de risque |
+
+Cohérence Logit-Probit : coefficients Logit $\approx$ 1,6 $\times$ Probit.
+
+### Modélisation - Effets marginaux
+
+```{r fig.height=3.8}
+em_logit <- margins(modele_logit)
+em_df <- summary(em_logit)
+
+ggplot(em_df, aes(x = reorder(factor, AME), y = AME)) +
+  geom_point(color = "navyblue", size = 2.5) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, color = "navyblue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "darkseagreen3") +
+  coord_flip() +
+  labs(x = "", y = "Effet marginal moyen") +
+  theme_minimal() +
+  theme(text = element_text(size = 10))
+```
+
+Retard sept. : **+8,6 points** de probabilité de défaut par niveau de retard.
+
+### Performances - Courbes ROC
+
+```{r fig.height=3.5}
+credit$prob_logit  <- predict(modele_logit, type = "response")
+credit$prob_probit <- predict(modele_probit, type = "response")
+
+roc_logit  <- roc(credit$defaut_paiement_mois_suivant, credit$prob_logit)
+roc_probit <- roc(credit$defaut_paiement_mois_suivant, credit$prob_probit)
+
+plot(roc_logit, col = "navyblue", lwd = 2,
+     main = "Courbes ROC : Logit vs Probit", cex.main = 1)
+plot(roc_probit, col = "darkseagreen3", lwd = 2, add = TRUE)
+legend("bottomright",
+       legend = c(paste0("Logit (AUC = ", round(auc(roc_logit), 4), ")"),
+                  paste0("Probit (AUC = ", round(auc(roc_probit), 4), ")")),
+       col = c("navyblue", "darkseagreen3"), lwd = 2, bty = "n", cex = 0.8)
+```
+
+### Performances - Récapitulatif
+
+\centering
+
+```{r results='asis'}
+seuil <- 0.5
+pred_logit <- ifelse(credit$prob_logit > seuil, 1, 0)
+pred_probit <- ifelse(credit$prob_probit > seuil, 1, 0)
+acc_logit <- mean(pred_logit == credit$defaut_paiement_mois_suivant)
+acc_probit <- mean(pred_probit == credit$defaut_paiement_mois_suivant)
+
+coords_logit <- coords(roc_logit, "best", best.method = "youden")
+
+perf <- data.frame(
+  Critère = c("AUC", "Accuracy", "Seuil optimal", "AIC", "BIC"),
+  Logit = c(round(auc(roc_logit),4), paste0(round(acc_logit*100,1),"%"),
+            round(coords_logit$threshold,4),
+            round(AIC(modele_logit),0), round(BIC(modele_logit),0)),
+  Probit = c(round(auc(roc_probit),4), paste0(round(acc_probit*100,1),"%"),
+             round(coords(roc_probit,"best",best.method="youden")$threshold,4),
+             round(AIC(modele_probit),0), round(BIC(modele_probit),0))
+)
+
+kable(perf, format = "latex", booktabs = TRUE)
+```
+
+\medskip
+
+- AUC $\approx$ 0,72 : discrimination acceptable
+- Logit légèrement supérieur (AIC, BIC)
+- Résultats confirmés sous R, Python et SAS
+
+### Conclusion
+
+**Principaux résultats** :
+
+- L'historique de retard de paiement est le prédicteur dominant du défaut
+- Les variables sociodémographiques (sexe, éducation, situation familiale) jouent un rôle significatif mais secondaire
+- Logit et Probit fournissent des résultats très proches ; le Logit est privilégié (AIC inférieur, interprétabilité)
+
+\medskip
+
+**Limites et perspectives** :
+
+- AUC de 0,72 : performance modérée
+- Pistes d'amélioration : variables supplémentaires (revenus), méthodes de machine learning
+
+\medskip
+

@@ -1,0 +1,811 @@
+---
+lang: fr
+output:
+  pdf_document: default
+geometry:
+- top=2cm
+- bottom=2cm
+- right=1.5cm
+- left=1.5cm
+header-includes: \usepackage{float}
+bibliography: bibliographie.bib
+nocite: '@*'
+---
+
+
+
+\begin{titlepage}
+\thispagestyle{empty}
+	
+	\begin{figure}
+    \centering
+    \vspace{-1cm}
+    \raisebox{-0.5\height}{\includegraphics[height=5cm]{logo univ orleans.png}}
+    \hspace{2cm}
+    \raisebox{-0.5\height}{\includegraphics[height=7cm]{logo esa vertical.jpg}}
+\end{figure}
+		
+	
+	\begin{center}	
+		{\vspace{3cm}
+		  \setlength{\fboxsep}{15pt}
+      \setlength{\fboxrule}{1.5pt}
+      \fbox{\parbox{0.8\textwidth}{\centering
+        \Huge \bf Projet R\\
+        \vspace{1cm}
+        \LARGE Analyse des probabilités de défaut de crédit}}
+			
+	    
+			\vspace{9cm}
+			\LARGE Réalisé par Quentin Ruel
+			\vfill	
+			\large Avril 2026 
+			\pagebreak}
+	\end{center}
+	
+\end{titlepage}
+
+
+\newpage
+\tableofcontents
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  fig.align  = "center",
+  fig.width  = 7,
+  fig.height = 4.5,
+  out.width  = "85%",
+  fig.pos    = "H",
+  comment    = NA
+)
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(pROC)
+library(margins)
+library(stargazer)
+
+credit <- read_excel("credit_defaut.xlsx")
+```
+
+# \underline{Introduction générale :}
+
+La gestion du risque de crédit constitue l'un des enjeux majeurs auxquels sont confrontés les établissements bancaires et financiers. Dans un contexte économique marqué par l'incertitude et la diversification croissante des profils d'emprunteurs, la capacité à évaluer la solvabilité d'un client avant l'octroi d'un prêt revêt une importance considérable. Un défaut de paiement, c'est-à-dire l'incapacité d'un emprunteur à honorer ses engagements financiers dans les délais prévus, engendre des pertes directes pour le prêteur et peut, à grande échelle, menacer la stabilité du système financier dans son ensemble.
+
+Face à ces enjeux, les institutions financières ont développé depuis plusieurs décennies des outils statistiques de **scoring de crédit** (*credit scoring*), qui visent à attribuer à chaque demandeur un score reflétant sa probabilité de défaut. Ces modèles permettent d'automatiser et d'objectiver les décisions d'octroi de crédit, tout en réduisant les coûts d'analyse individuelle. Parmi les approches les plus utilisées dans la littérature académique et en pratique bancaire figurent les modèles de **régression logistique (Logit)** et de **régression Probit**, qui modélisent la probabilité de survenue d'un événement binaire --- ici, le défaut de paiement --- en fonction de variables explicatives caractérisant l'emprunteur.
+
+## Problématique
+
+Ce rapport s'inscrit dans cette perspective et vise à répondre à la problématique suivante :
+
+> **Dans quelle mesure les caractéristiques socio-économiques et l'historique de remboursement d'un client permettent-ils de prédire sa probabilité de défaut de paiement ?**
+
+Pour y répondre, nous exploitons une base de données de `r format(nrow(credit), big.mark = " ")` clients, comportant `r ncol(credit) - 2` variables explicatives portant sur le profil sociodémographique (sexe, âge, niveau d'éducation, situation familiale), les caractéristiques du crédit (plafond de la carte) ainsi que l'historique de remboursement sur une période de six mois (avril à septembre 2023). La variable cible est le **défaut de paiement au mois suivant**, indicateur binaire prenant la valeur 1 en cas de défaut et 0 sinon. Le taux de défaut observé dans l'échantillon est de `r round(mean(credit$defaut_paiement_mois_suivant) * 100, 1)` \%, ce qui reflète un déséquilibre caractéristique des problèmes de classification en risque de crédit.
+
+## Méthodologie
+
+La méthodologie adoptée dans ce travail repose sur les étapes suivantes :
+
+1. **Analyse exploratoire des données** : statistiques descriptives, visualisation de la distribution des variables et étude des relations bivariées entre les covariables et la variable cible.
+
+2. **Estimation des modèles** : spécification et estimation de modèles Logit et Probit par la méthode du maximum de vraisemblance, avec sélection de variables pertinentes.
+
+3. **Analyse des résultats** : interprétation des coefficients estimés, calcul des effets marginaux et prédiction des probabilités de défaut.
+
+4. **Évaluation des performances** : comparaison des deux modèles à l'aide de critères tels que la courbe ROC, l'aire sous la courbe (AUC), la matrice de confusion et le taux d'erreur de classification.
+
+5. **Vérification de la robustesse** : réplication des estimations sous Python et SAS afin de confirmer la stabilité des résultats obtenus sous R.
+
+## Plan du rapport
+
+Le rapport est structuré comme suit. La **section 2** présente le cadre conceptuel du scoring bancaire et son rôle dans la gestion du risque de crédit. La **section 3** expose le cadre économétrique des modèles Logit et Probit : spécification, estimation par maximum de vraisemblance, propriétés asymptotiques, tests et critères de comparaison. La **section 4** est consacrée à l'analyse empirique : description des données, estimation des modèles, interprétation des résultats et évaluation des performances prédictives. Enfin, la **section 5** conclut le rapport en synthétisant les principaux enseignements de l'étude. Les annexes présentent la vérification de la robustesse des résultats avec Python et SAS.
+
+
+
+\newpage
+
+
+
+# \underline{Présentation du scoring bancaire :}
+
+Le scoring bancaire, ou credit scoring, désigne l'ensemble des méthodes statistiques et quantitatives utilisées par les établissements financiers pour évaluer le risque de défaut associé à un emprunteur. L'objectif principal est d'attribuer à chaque demandeur de crédit un score numérique, reflétant sa probabilité de ne pas honorer ses engagements de remboursement. Ce score permet ensuite de classer les clients en différentes catégories de risque et d'orienter les décisions d'octroi, de tarification ou de surveillance du crédit.
+
+\vspace{10pt}
+
+L'origine du credit scoring remonte aux années 1940-1950, avec les travaux pionniers de David Durand sur l'analyse discriminante appliquée au crédit à la consommation. La pratique s'est ensuite largement démocratisée à partir des années 1960-1970, notamment sous l'impulsion de Fair Isaac Corporation (FICO) aux États-Unis, qui a développé les premiers scores standardisés destinés aux institutions financières. Depuis, le recours au scoring s'est généralisé à l'échelle mondiale, porté par la croissance du crédit de masse et par les exigences réglementaires, en particulier les accords de Bâle II et Bâle III qui imposent aux banques de quantifier et de maîtriser leur risque de crédit.
+Le processus de construction d'un modèle de scoring repose sur l'exploitation de données historiques relatives aux emprunteurs. Ces données comprennent généralement des caractéristiques sociodémographiques (âge, sexe, situation familiale, niveau d'éducation), des informations financières (revenus, plafond de crédit, encours) ainsi que des indicateurs comportementaux liés à l'historique de remboursement (retards de paiement, montants remboursés). À partir de ces variables, un modèle statistique est estimé pour identifier les facteurs les plus prédictifs du défaut et quantifier leur influence respective.
+
+\vspace{10pt}
+
+En pratique, les modèles les plus couramment utilisés en scoring bancaire sont les modèles de régression sur variable binaire, principalement le modèle Logit et le modèle Probit. Ces modèles présentent l'avantage d'être facilement interprétables, robustes et bien adaptés à la modélisation d'une variable cible dichotomique (défaut / non-défaut). Ils permettent d'estimer directement la probabilité de défaut conditionnellement aux caractéristiques de l'emprunteur, ce qui en fait des outils particulièrement pertinents pour la prise de décision.
+
+\vspace{10pt}
+
+Le scoring bancaire joue un rôle central dans la gestion du risque de crédit à plusieurs niveaux. À l'échelle individuelle, il permet d'automatiser et d'objectiver l'évaluation de chaque demande, réduisant ainsi les biais liés au jugement humain et les coûts d'analyse. À l'échelle du portefeuille, il offre aux banques une vision agrégée de leur exposition au risque, facilitant le provisionnement des pertes attendues et le respect des ratios prudentiels. Enfin, du point de vue de la régulation, le scoring constitue un outil de conformité indispensable dans le cadre des normes internationales de supervision bancaire.
+
+
+
+# \underline{Modélisation de la probabilité de défaut :}
+
+La modélisation de la probabilité de défaut repose sur l'utilisation de modèles de régression adaptés aux variables dépendantes binaires. Dans notre cas, la variable d'intérêt $y_i$ prend la valeur 1 si le client $i$ est en situation de défaut de paiement, et 0 sinon. On suppose l'existence d'une variable latente $y_i^*$, interprétée comme le score de risque de l'individu, telle que :
+ 
+$$y_i^* = \mathbf{x}_i' \boldsymbol{\beta} + \varepsilon_i$$
+ 
+où $\mathbf{x}_i = (1, x_{i1}, x_{i2}, \ldots, x_{iK})'$ est le vecteur des covariables, $\boldsymbol{\beta} = (\beta_0, \beta_1, \ldots, \beta_K)'$ le vecteur de paramètres à estimer, et $\varepsilon_i$ un terme d'erreur aléatoire. Le défaut est observé lorsque cette variable latente dépasse un certain seuil, conventionnellement fixé à zéro :
+ 
+$$y_i = \begin{cases} 1 & \text{si } y_i^* > 0 \\ 0 & \text{si } y_i^* \leq 0 \end{cases}$$
+ 
+La probabilité de défaut s'écrit alors :
+ 
+$$P(y_i = 1 \mid \mathbf{x}_i) = P(y_i^* > 0) = P(\varepsilon_i > -\mathbf{x}_i' \boldsymbol{\beta}) = F(\mathbf{x}_i' \boldsymbol{\beta})$$
+ 
+où $F(\cdot)$ est la fonction de répartition du terme d'erreur $\varepsilon_i$. Le choix de la distribution de $\varepsilon_i$ détermine le type de modèle : une loi logistique conduit au modèle \textbf{Logit}, tandis qu'une loi normale centrée réduite conduit au modèle \textbf{Probit}. Nous présentons ces deux approches dans les sous-sections suivantes.
+ 
+ 
+## Le modèle Logit
+ 
+Le modèle Logit repose sur l'hypothèse que le terme d'erreur $\varepsilon_i$ suit une loi logistique standard. La fonction de répartition associée est la fonction logistique :
+ 
+$$\Lambda(z) = \frac{e^z}{1 + e^z} = \frac{1}{1 + e^{-z}}$$
+ 
+La probabilité de défaut du client $i$ est donc modélisée par :
+ 
+$$P(y_i = 1 \mid \mathbf{x}_i) = \Lambda(\mathbf{x}_i' \boldsymbol{\beta}) = \frac{\exp(\mathbf{x}_i' \boldsymbol{\beta})}{1 + \exp(\mathbf{x}_i' \boldsymbol{\beta})}$$
+ 
+et la probabilité de non-défaut par :
+ 
+$$P(y_i = 0 \mid \mathbf{x}_i) = 1 - \Lambda(\mathbf{x}_i' \boldsymbol{\beta}) = \frac{1}{1 + \exp(\mathbf{x}_i' \boldsymbol{\beta})}$$
+ 
+Une propriété intéressante du modèle Logit est qu'il admet une interprétation en termes de rapport de cotes (\textit{odds ratio}). En effet, le rapport des probabilités s'écrit :
+ 
+$$\frac{P(y_i = 1 \mid \mathbf{x}_i)}{P(y_i = 0 \mid \mathbf{x}_i)} = \exp(\mathbf{x}_i' \boldsymbol{\beta})$$
+ 
+En prenant le logarithme, on obtient le \textit{log-odds} ou logit :
+ 
+$$\ln \left( \frac{P(y_i = 1 \mid \mathbf{x}_i)}{P(y_i = 0 \mid \mathbf{x}_i)} \right) = \mathbf{x}_i' \boldsymbol{\beta} = \beta_0 + \beta_1 x_{i1} + \cdots + \beta_K x_{iK}$$
+ 
+Ainsi, les coefficients $\beta_k$ mesurent l'effet d'une variation unitaire de $x_k$ sur le log-odds du défaut, toutes choses égales par ailleurs. L'exponentielle $\exp(\beta_k)$ représente le facteur multiplicatif de l'odds ratio associé à une augmentation d'une unité de $x_k$.
+ 
+\medskip
+ 
+\textbf{Estimation par maximum de vraisemblance :} Les paramètres du modèle Logit sont estimés par la méthode du maximum de vraisemblance (MV). Pour un échantillon de $n$ observations indépendantes, la fonction de vraisemblance s'écrit :
+ 
+$$\mathcal{L}(\boldsymbol{\beta}) = \prod_{i=1}^{n} \left[ \Lambda(\mathbf{x}_i' \boldsymbol{\beta}) \right]^{y_i} \left[ 1 - \Lambda(\mathbf{x}_i' \boldsymbol{\beta}) \right]^{1 - y_i}$$
+ 
+et la log-vraisemblance :
+ 
+$$\ell(\boldsymbol{\beta}) = \sum_{i=1}^{n} \left[ y_i \ln \Lambda(\mathbf{x}_i' \boldsymbol{\beta}) + (1 - y_i) \ln \left(1 - \Lambda(\mathbf{x}_i' \boldsymbol{\beta}) \right) \right]$$
+ 
+L'estimateur du maximum de vraisemblance $\hat{\boldsymbol{\beta}}_{MV}$ est obtenu par maximisation numérique de $\ell(\boldsymbol{\beta})$, généralement par l'algorithme de Newton-Raphson ou une méthode de score de Fisher. Sous des conditions de régularité standard, $\hat{\boldsymbol{\beta}}_{MV}$ est convergent, asymptotiquement normal et asymptotiquement efficace :
+ 
+$$\hat{\boldsymbol{\beta}}_{MV} \xrightarrow{d} \mathcal{N}\left(\boldsymbol{\beta}, \, \left[\mathcal{I}(\boldsymbol{\beta})\right]^{-1}\right)$$
+ 
+où $\mathcal{I}(\boldsymbol{\beta})$ est la matrice d'information de Fisher.
+ 
+\medskip
+ 
+\textbf{Effets marginaux :} Contrairement aux modèles linéaires, les coefficients $\beta_k$ ne représentent pas directement l'effet marginal d'une variable sur la probabilité de défaut. L'effet marginal d'une variable continue $x_k$ est donné par :
+ 
+$$\frac{\partial P(y_i = 1 \mid \mathbf{x}_i)}{\partial x_k} = \Lambda(\mathbf{x}_i' \boldsymbol{\beta}) \cdot \left[1 - \Lambda(\mathbf{x}_i' \boldsymbol{\beta})\right] \cdot \beta_k$$
+ 
+Cet effet dépend du point d'évaluation $\mathbf{x}_i$. En pratique, on reporte soit l'effet marginal évalué à la moyenne des covariables (\textit{Marginal Effect at the Mean}, MEM), soit la moyenne des effets marginaux individuels (\textit{Average Marginal Effect}, AME).
+ 
+ 
+## Le modèle Probit
+ 
+Le modèle Probit suppose que le terme d'erreur $\varepsilon_i$ suit une loi normale centrée réduite $\mathcal{N}(0, 1)$. La fonction de répartition utilisée est donc la fonction de répartition de la loi normale standard :
+ 
+$$\Phi(z) = \int_{-\infty}^{z} \frac{1}{\sqrt{2\pi}} \exp\left(-\frac{t^2}{2}\right) dt$$
+ 
+La probabilité de défaut du client $i$ s'écrit :
+ 
+$$P(y_i = 1 \mid \mathbf{x}_i) = \Phi(\mathbf{x}_i' \boldsymbol{\beta})$$
+ 
+et la probabilité de non-défaut :
+ 
+$$P(y_i = 0 \mid \mathbf{x}_i) = 1 - \Phi(\mathbf{x}_i' \boldsymbol{\beta})$$
+ 
+Contrairement au modèle Logit, le Probit ne permet pas une interprétation directe en termes d'odds ratio. Les coefficients $\beta_k$ indiquent la direction et l'ampleur relative de l'effet de chaque variable sur la variable latente $y_i^*$, mais leur traduction en termes de probabilité nécessite le passage par la fonction $\Phi$.
+ 
+\medskip
+ 
+\textbf{Estimation par maximum de vraisemblance :} De manière analogue au Logit, l'estimation repose sur la maximisation de la log-vraisemblance :
+ 
+$$\ell(\boldsymbol{\beta}) = \sum_{i=1}^{n} \left[ y_i \ln \Phi(\mathbf{x}_i' \boldsymbol{\beta}) + (1 - y_i) \ln \left(1 - \Phi(\mathbf{x}_i' \boldsymbol{\beta}) \right) \right]$$
+ 
+Les propriétés asymptotiques de l'estimateur $\hat{\boldsymbol{\beta}}_{MV}$ sont identiques à celles du Logit : convergence, normalité asymptotique et efficacité.
+ 
+\medskip
+ 
+\textbf{Effets marginaux :} L'effet marginal d'une variable continue $x_k$ dans le modèle Probit est :
+ 
+$$\frac{\partial P(y_i = 1 \mid \mathbf{x}_i)}{\partial x_k} = \phi(\mathbf{x}_i' \boldsymbol{\beta}) \cdot \beta_k$$
+ 
+où $\phi(\cdot)$ est la fonction de densité de la loi normale centrée réduite :
+ 
+$$\phi(z) = \frac{1}{\sqrt{2\pi}} \exp\left(-\frac{z^2}{2}\right)$$
+ 
+Comme pour le Logit, l'effet marginal dépend du point d'évaluation et est généralement reporté sous forme de MEM ou d'AME.
+ 
+\medskip
+ 
+## Comparaison Logit -- Probit
+
+En pratique, les modèles Logit et Probit fournissent des résultats très similaires. Les deux fonctions de lien ($\Lambda$ et $\Phi$) ont une forme en S comparable, la principale différence résidant dans les queues de distribution : la loi logistique possède des queues légèrement plus épaisses que la loi normale. Une règle empirique classique relie approximativement les coefficients des deux modèles par un facteur de proportionnalité :
+ 
+$$\hat{\beta}_k^{\text{Logit}} \approx 1{,}6 \times \hat{\beta}_k^{\text{Probit}}$$
+ 
+Le choix entre les deux modèles s'effectue généralement sur la base de critères d'information (AIC, BIC), de la qualité prédictive (courbe ROC, AUC) ou simplement par convention disciplinaire. Dans le domaine bancaire, le modèle Logit est souvent privilégié en raison de son interprétabilité en termes d'odds ratio.
+ 
+\medskip
+ 
+\textbf{Évaluation des performances :} La qualité prédictive des modèles est évaluée à l'aide de plusieurs outils. La \textbf{matrice de confusion} croise les prédictions du modèle avec les valeurs observées, permettant de calculer le taux de bons classements, la sensibilité (taux de vrais positifs) et la spécificité (taux de vrais négatifs). La \textbf{courbe ROC} (\textit{Receiver Operating Characteristic}) représente graphiquement la sensibilité en fonction de $(1 - \text{spécificité})$ pour différents seuils de classification. L'\textbf{AUC} (\textit{Area Under the Curve}), comprise entre 0,5 et 1, synthétise la capacité discriminante du modèle : une valeur proche de 1 indique un modèle performant, tandis qu'une valeur proche de 0,5 correspond à un classement aléatoire.
+
+
+
+
+
+# Régression et analyse des résultats
+
+## Présentation des données
+
+La base de données utilisée dans cette étude porte sur un échantillon de `r format(nrow(credit), big.mark = " ")` clients titulaires d'une carte de crédit. Elle comporte `r ncol(credit)` variables, dont une variable cible binaire (\texttt{defaut\_paiement\_mois\_suivant}) et `r ncol(credit) - 2` variables explicatives. Nous excluons la variable \texttt{id\_client}, qui est un simple identifiant sans pouvoir explicatif.
+
+Les variables peuvent être regroupées en trois catégories :
+
+- \textbf{Variables sociodémographiques} : sexe, âge, niveau d'éducation, situation familiale.
+- \textbf{Caractéristiques du crédit} : plafond de la carte de crédit (en euros).
+- \textbf{Historique de remboursement} : statut de retard de paiement, encours de la carte et montants remboursés pour chacun des six mois d'observation (avril à septembre 2023).
+
+```{r recodage, echo=FALSE}
+credit <- credit %>%
+  mutate(
+    sexe_label = factor(sexe, 
+                        levels = c(1, 2), 
+                        labels = c("Homme", "Femme")),
+    education_label = factor(niveau_education, 
+                             levels = c(0, 1, 2, 3, 4, 5, 6),
+                             labels = c("Autre", "Doctorat", "Master", 
+                                        "Licence", "Lycée", "Autre2", "Autre3")),
+    famille_label = factor(situation_familiale, 
+                           levels = c(0, 1, 2, 3),
+                           labels = c("Autre", "Marié(e)", "Célibataire", "Autre2")),
+    defaut_label = factor(defaut_paiement_mois_suivant, 
+                          levels = c(0, 1), 
+                          labels = c("Non-défaut", "Défaut"))
+  )
+```
+
+### Statistiques descriptives
+
+```{r stats-desc, echo=FALSE, results='asis'}
+vars_continues <- credit %>%
+  select(plafond_credit_eur, age, 
+         encours_carte_sep_2023_eur, montant_rembourse_sep_2023_eur)
+
+stats <- data.frame(
+  Variable = c("Plafond crédit (EUR)", "Âge", 
+                "Encours carte sept. (EUR)", "Montant remboursé sept. (EUR)"),
+  Moyenne = round(colMeans(vars_continues), 2),
+  Ecart_type = round(sapply(vars_continues, sd), 2),
+  Min = round(sapply(vars_continues, min), 2),
+  Médiane = round(sapply(vars_continues, median), 2),
+  Max = round(sapply(vars_continues, max), 2)
+)
+rownames(stats) <- NULL
+
+kable(stats, format = "latex", booktabs = TRUE, 
+      caption = "Statistiques descriptives des variables continues",
+      col.names = c("Variable", "Moyenne", "Écart-type", "Min", "Médiane", "Max")) %>%
+  kableExtra::kable_styling(latex_options = c("hold_position"))
+```
+
+La table 1 révèle une forte hétérogénéité dans l'échantillon. Le plafond de crédit varie de 280 à 28 000 € avec une moyenne de 4 690 €, ce qui traduit des profils financiers très divers. L'âge moyen des clients est de 35 ans, avec un écart-type de 9 ans. On note également que l'encours moyen de la carte en septembre 2023 s'élève à environ 1 434 EUR, tandis que le montant moyen remboursé ce même mois est de 159 €, ce qui suggère que la majorité des clients ne remboursent qu'une faible fraction de leur encours.
+
+\newpage
+
+```{r tab-defaut, echo=FALSE, results='asis'}
+tab_defaut <- credit %>%
+  group_by(defaut_label) %>%
+  summarise(Effectif = n()) %>%
+  mutate(Proportion = paste0(round(Effectif / sum(Effectif) * 100, 1), " %"))
+
+kable(tab_defaut, format = "latex", booktabs = TRUE,
+      caption = "Répartition de la variable cible (défaut de paiement)",
+      col.names = c("Statut", "Effectif", "Proportion")) %>%
+  kableExtra::kable_styling(latex_options = c("hold_position"))
+```
+
+La variable cible présente un déséquilibre notable : environ 78 % des clients sont en situation de non-défaut contre 22 % en défaut. Ce déséquilibre est courant dans les problématiques de scoring de crédit et devra être pris en compte lors de l'interprétation des performances des modèles.
+
+### Analyse graphique
+
+```{r graph-defaut, echo=FALSE, fig.cap="Répartition des défauts de paiement", fig.height=3.5}
+ggplot(credit, aes(x = defaut_label, fill = defaut_label)) +
+  geom_bar(width = 0.5) +
+  scale_fill_manual(values = c("Non-défaut" = "navyblue", "Défaut" = "darkseagreen3")) +
+  labs(x = "", y = "Effectif", fill = "") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        text = element_text(size = 12))
+```
+
+La figure 1 illustre clairement le déséquilibre de la variable cible. Les non-défauts représentent près de 23 400 individus contre environ 6 600 pour les défauts.
+
+```{r graph-age, echo=FALSE, fig.cap="Distribution de l'âge selon le statut de défaut", fig.height=4}
+ggplot(credit, aes(x = age, fill = defaut_label)) +
+  geom_histogram(bins = 30, alpha = 0.7, position = "identity") +
+  scale_fill_manual(values = c("Non-défaut" = "navyblue", "Défaut" = "darkseagreen3")) +
+  labs(x = "Âge", y = "Effectif", fill = "Statut") +
+  theme_minimal() +
+  theme(text = element_text(size = 12))
+```
+
+La figure 2 montre que la distribution de l'âge est asymétrique à droite, avec une concentration des clients entre 25 et 40 ans. Les défauts de paiement suivent globalement la même distribution que l'échantillon global, ce qui suggère que l'âge seul ne constitue pas un facteur discriminant très puissant, bien qu'on observe une proportion légèrement plus élevée de défauts chez les jeunes emprunteurs.
+
+```{r graph-sexe, echo=FALSE, fig.cap="Taux de défaut selon le sexe", fig.height=3.5}
+credit %>%
+  group_by(sexe_label) %>%
+  summarise(taux_defaut = mean(defaut_paiement_mois_suivant) * 100) %>%
+  ggplot(aes(x = sexe_label, y = taux_defaut, fill = sexe_label)) +
+  geom_col(width = 0.5) +
+  scale_fill_manual(values = c("Homme" = "navyblue", "Femme" = "darkseagreen3")) +
+  labs(x = "", y = "Taux de défaut (%)", fill = "") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        text = element_text(size = 12))
+```
+
+La figure 3 révèle un taux de défaut légèrement plus élevé chez les hommes (environ 24 %) que chez les femmes (environ 21 %). Cet écart, bien que modeste, est cohérent avec la littérature sur le risque de crédit qui identifie souvent le genre comme un facteur significatif.
+
+```{r graph-education, echo=FALSE, fig.cap="Taux de défaut selon le niveau d'éducation", fig.height=4}
+credit %>%
+  group_by(education_label) %>%
+  summarise(taux_defaut = mean(defaut_paiement_mois_suivant) * 100) %>%
+  ggplot(aes(x = reorder(education_label, -taux_defaut), y = taux_defaut, 
+             fill = education_label)) +
+  geom_col(width = 0.6) +
+  scale_fill_brewer(palette = "Blues") +
+  labs(x = "Niveau d'éducation", y = "Taux de défaut (%)", fill = "") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30, hjust = 1),
+        text = element_text(size = 12))
+```
+
+La figure 4 met en évidence une relation entre le niveau d'éducation et le taux de défaut. Les titulaires d'une Licence présentent le taux de défaut le plus élevé (près de 25 %), suivis des titulaires d'un Master. Les détenteurs d'un Doctorat affichent un taux de défaut inférieur, ce qui peut s'expliquer par des revenus plus élevés et une meilleure stabilité financière.
+
+```{r graph-retard, echo=FALSE, fig.cap="Taux de défaut selon le retard de paiement en septembre 2023", fig.height=4}
+credit %>%
+  group_by(retard_paiement_sep_2023) %>%
+  summarise(taux_defaut = mean(defaut_paiement_mois_suivant) * 100) %>%
+  ggplot(aes(x = factor(retard_paiement_sep_2023), y = taux_defaut)) +
+  geom_col(fill = "navyblue", width = 0.6) +
+  labs(x = "Statut de retard (septembre 2023)", y = "Taux de défaut (%)") +
+  theme_minimal() +
+  theme(text = element_text(size = 12))
+```
+
+La figure 5 est particulièrement éclairante : le taux de défaut augmente fortement avec le statut de retard de paiement. Les clients sans retard (statut 0 ou négatif) présentent un taux de défaut inférieur à 15 %, tandis que ceux ayant un retard de 2 mois ou plus dépassent les 60 %, pouvant atteindre près de 80 % pour un retard de 3 mois. L'historique de retard apparaît ainsi comme le prédicteur le plus discriminant du défaut futur.
+
+
+## Sélection de variables
+
+Avant d'estimer les modèles, il convient de vérifier l'existence de potentielles redondances entre les variables explicatives. En effet, la base contient six mois d'historique pour les retards de paiement, les encours de carte et les montants remboursés, soit 18 variables temporelles susceptibles d'être fortement corrélées entre elles. L'inclusion de variables redondantes peut nuire à la stabilité des estimations et à l'interprétabilité des coefficients.
+
+### Analyse des corrélations
+
+```{r correlation, echo=FALSE, fig.cap="Matrice de corrélation des variables explicatives", fig.height=6, fig.width=8}
+# Selection des variables numeriques (hors id et labels)
+vars_num <- credit %>%
+  select(-id_client, -ends_with("_label"), -defaut_paiement_mois_suivant) %>%
+  select(where(is.numeric))
+
+# Matrice de correlation
+cor_matrix <- cor(vars_num)
+
+# Visualisation
+library(corrplot)
+corrplot(cor_matrix, method = "color", type = "lower",
+         tl.cex = 0.6, tl.col = "black",
+         col = colorRampPalette(c("darkseagreen3", "white", "navyblue"))(200),
+         addCoef.col = "black", number.cex = 0.4,
+         diag = FALSE)
+```
+
+La matrice de corrélation révèle plusieurs groupes de variables fortement corrélées. Les six variables d'encours de carte présentent des corrélations mutuelles très élevées (souvent supérieures à 0,9), de même que les six variables de montants remboursés. Conserver l'intégralité de ces variables introduirait une multicolinéarité importante dans les modèles.
+
+### Sélection par procédure stepwise
+
+Nous procédons à une sélection de variables par la méthode stepwise basée sur le critère d'information d'Akaike (AIC). Cette approche consiste à ajouter ou retirer séquentiellement des variables du modèle afin de minimiser l'AIC, qui réalise un compromis entre qualité d'ajustement et parcimonie.
+
+```{r stepwise, echo=FALSE, results='hide'}
+# Modele complet
+modele_complet <- glm(defaut_paiement_mois_suivant ~ . - id_client,
+                      data = credit %>% select(-ends_with("_label")),
+                      family = binomial(link = "logit"))
+
+# Selection stepwise (direction = "both")
+modele_step <- step(modele_complet, direction = "both", trace = 0)
+```
+
+```{r stepwise-result, echo=FALSE, results='asis'}
+# Variables retenues
+vars_retenues <- names(coef(modele_step))[-1]  # sans l'intercept
+
+step_df <- data.frame(
+  Info = c("Nombre de variables initiales",
+           "Nombre de variables retenues",
+           "AIC modèle complet",
+           "AIC modèle sélectionné"),
+  Valeur = c(length(coef(modele_complet)) - 1,
+             length(vars_retenues),
+             round(AIC(modele_complet), 2),
+             round(AIC(modele_step), 2))
+)
+
+kable(step_df, format = "latex", booktabs = TRUE,
+      caption = "Résultat de la sélection stepwise par AIC",
+      col.names = c("", "Valeur")) %>%
+  kableExtra::kable_styling(latex_options = c("hold_position"))
+```
+
+```{r vars-retenues, echo=FALSE, results='asis'}
+vars_df <- data.frame(Variable = vars_retenues)
+
+kable(vars_df, format = "latex", booktabs = TRUE,
+      caption = "Variables retenues après sélection stepwise",
+      col.names = c("Variable")) %>%
+  kableExtra::kable_styling(latex_options = c("hold_position"))
+```
+
+La procédure stepwise permet de réduire le nombre de variables tout en maintenant (voire en améliorant) la qualité du modèle mesurée par l'AIC. Les variables éliminées sont celles dont la contribution à l'explication du défaut est marginale une fois les autres variables prises en compte, notamment certains mois d'encours et de remboursement qui étaient redondants avec les mois les plus récents.
+
+Dans la suite, les modèles Logit et Probit sont estimés en utilisant uniquement les variables retenues par cette procédure de sélection.
+
+
+## Estimation des modèles
+
+Nous estimons les modèles Logit et Probit en incluant l'ensemble des variables explicatives disponibles. La variable \texttt{id\_client} est exclue de l'estimation. Les résultats sont présentés dans la table 5.
+
+```{r estimation, echo=FALSE, results='asis'}
+# Formule issue de la selection stepwise
+formule_sel <- formula(modele_step)
+
+# Estimation du modele Logit
+modele_logit <- glm(formule_sel,
+                    data = credit %>% select(-ends_with("_label")),
+                    family = binomial(link = "logit"))
+
+# Estimation du modele Probit
+modele_probit <- glm(formule_sel,
+                     data = credit %>% select(-ends_with("_label")),
+                     family = binomial(link = "probit"))
+
+stargazer(modele_logit, modele_probit,
+          type = "latex",
+          title = "Résultats d'estimation des modèles Logit et Probit",
+          column.labels = c("Logit", "Probit"),
+          dep.var.labels = "Défaut de paiement",
+          header = FALSE,
+          float = TRUE,
+          table.placement = "H",
+          font.size = "small",
+          no.space = TRUE)
+```
+
+### Analyse des résultats d'estimation
+
+Les résultats d'estimation confirment les tendances observées lors de l'analyse descriptive. Plusieurs constats se dégagent.
+
+Le \textbf{retard de paiement en septembre 2023} est la variable la plus significative et la plus influente, avec un coefficient Logit de 0,577. Cela signifie qu'une augmentation d'un niveau de retard multiplie l'odds de défaut par $e^{0,577} \approx 1,78$, soit une hausse de 78 % du risque relatif. Les retards des mois précédents (août, juillet) sont également significatifs mais avec une influence décroissante, ce qui indique que le comportement de paiement récent est plus prédictif que l'historique ancien.
+
+Concernant les variables sociodémographiques, le \textbf{sexe} a un coefficient négatif (-0,109), ce qui indique que les femmes (codées 2) ont un risque de défaut inférieur aux hommes, toutes choses égales par ailleurs. Le \textbf{niveau d'éducation} présente également un coefficient négatif (-0,102) : un niveau d'éducation plus élevé est associé à un risque de défaut plus faible. La \textbf{situation familiale} joue dans le même sens (-0,154).
+
+L'\textbf{âge} a un effet positif mais très faible (0,007), suggérant une légère augmentation du risque avec l'âge, une fois les autres facteurs contrôlés.
+
+Les \textbf{montants remboursés} présentent des coefficients négatifs significatifs, en particulier pour septembre et août : plus un client rembourse, moins il est susceptible de faire défaut le mois suivant. En revanche, les \textbf{encours de la carte} ne sont significatifs qu'en septembre, avec un effet négatif.
+
+Enfin, on observe une grande cohérence entre les deux modèles : les signes et les niveaux de significativité des coefficients sont identiques, les coefficients Logit étant environ 1,6 fois supérieurs à ceux du Probit, conformément à la relation théorique attendue.
+
+
+## Effets marginaux
+
+Les coefficients des modèles Logit et Probit ne s'interprètent pas directement en termes de variation de probabilité. Nous calculons les effets marginaux moyens (\textit{Average Marginal Effects}) pour quantifier l'impact concret de chaque variable sur la probabilité de défaut.
+
+```{r effets-marginaux, echo=FALSE, results='asis'}
+em_logit  <- margins(modele_logit)
+em_probit <- margins(modele_probit)
+
+em_comp <- data.frame(
+  Variable = names(summary(em_logit)$AME),
+  AME_Logit = round(summary(em_logit)$AME, 5),
+  AME_Probit = round(summary(em_probit)$AME, 5)
+)
+rownames(em_comp) <- NULL
+
+kable(em_comp, format = "latex", booktabs = TRUE,
+      caption = "Effets marginaux moyens : Logit vs Probit",
+      col.names = c("Variable", "AME Logit", "AME Probit")) %>%
+  kableExtra::kable_styling(latex_options = c("hold_position", "scale_down"))
+```
+
+```{r graph-em, echo=FALSE, fig.cap="Effets marginaux moyens du modèle Logit", fig.height=5}
+em_df <- summary(em_logit)
+
+ggplot(em_df, aes(x = reorder(factor, AME), y = AME)) +
+  geom_point(color = "navyblue", size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, color = "navyblue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "darkseagreen3") +
+  coord_flip() +
+  labs(x = "", y = "Effet marginal moyen", 
+       title = "Effets marginaux moyens (Logit)") +
+  theme_minimal() +
+  theme(text = element_text(size = 11))
+```
+
+Le tableau et la figure des effets marginaux permettent de quantifier l'impact en points de probabilité. Le retard de paiement en septembre 2023 domine largement : une augmentation d'un niveau de retard accroît la probabilité de défaut de \textbf{8,6 points de pourcentage} en moyenne. Les retards des mois précédents contribuent également mais dans une moindre mesure (1,2 point pour août, 1,1 point pour juillet).
+
+À l'inverse, la situation familiale (-2,3 points), le sexe (-1,6 point) et le niveau d'éducation (-1,5 point) ont des effets marginaux négatifs significatifs. Les montants remboursés ont des effets très faibles en valeur absolue, car ils sont exprimés en euros : un euro remboursé en plus réduit la probabilité de défaut d'environ 0,00007 point, soit environ 0,7 point pour 10 000 EUR remboursés.
+
+Les effets marginaux des deux modèles sont très proches, confirmant la similarité des résultats Logit et Probit.
+
+
+## Prédiction et évaluation des performances
+
+### Prédiction des probabilités de défaut
+
+```{r prediction, echo=FALSE, results='asis'}
+credit$prob_logit  <- predict(modele_logit, type = "response")
+credit$prob_probit <- predict(modele_probit, type = "response")
+
+pred_stats <- data.frame(
+  Modèle = c("Logit", "Probit"),
+  Moyenne = c(mean(credit$prob_logit), mean(credit$prob_probit)),
+  Médiane = c(median(credit$prob_logit), median(credit$prob_probit)),
+  Min = c(min(credit$prob_logit), min(credit$prob_probit)),
+  Max = c(max(credit$prob_logit), max(credit$prob_probit))
+) %>% mutate(across(where(is.numeric), ~round(., 4)))
+
+kable(pred_stats, format = "latex", booktabs = TRUE,
+      caption = "Statistiques des probabilités de défaut prédites",
+      col.names = c("Modèle", "Moyenne", "Médiane", "Min", "Max")) %>%
+  kableExtra::kable_styling(latex_options = c("hold_position"))
+```
+
+La probabilité de défaut prédite est en moyenne de 22 % pour les deux modèles, ce qui correspond bien au taux de défaut observé dans l'échantillon. Les prédictions s'étendent de quasiment 0 à plus de 99 %, illustrant la capacité des modèles à différencier les profils à faible et à fort risque.
+
+```{r graph-prob, echo=FALSE, fig.cap="Distribution des probabilités prédites (Logit)", fig.height=4}
+ggplot(credit, aes(x = prob_logit, fill = defaut_label)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  scale_fill_manual(values = c("Non-défaut" = "navyblue", "Défaut" = "darkseagreen3")) +
+  labs(x = "Probabilité prédite de défaut", y = "Effectif", fill = "Statut observé") +
+  theme_minimal() +
+  theme(text = element_text(size = 12))
+```
+
+La figure 7 montre la distribution des probabilités prédites par le modèle Logit, colorées selon le statut observé. On constate que les non-défauts sont concentrés vers les faibles probabilités (pic autour de 0,15-0,20), tandis que les défauts sont plus dispersés, avec une part non négligeable au-delà de 0,50. Néanmoins, un chevauchement important subsiste dans la zone 0,15-0,40, ce qui explique les difficultés de classification du modèle et la sensibilité modérée observée ci-après.
+
+### Matrice de confusion
+
+```{r confusion, echo=FALSE}
+seuil <- 0.5
+
+pred_classe_logit <- ifelse(credit$prob_logit > seuil, 1, 0)
+conf_logit <- table(Observe = credit$defaut_paiement_mois_suivant, 
+                    Predit = pred_classe_logit)
+
+pred_classe_probit <- ifelse(credit$prob_probit > seuil, 1, 0)
+conf_probit <- table(Observe = credit$defaut_paiement_mois_suivant, 
+                     Predit = pred_classe_probit)
+
+accuracy_logit  <- sum(diag(conf_logit)) / sum(conf_logit)
+accuracy_probit <- sum(diag(conf_probit)) / sum(conf_probit)
+```
+
+```{r conf-table, echo=FALSE, results='asis'}
+conf_df <- data.frame(
+  Modèle = c("Logit", "Logit", "Probit", "Probit"),
+  Observé = c("Non-défaut", "Défaut", "Non-défaut", "Défaut"),
+  Prédit_0 = c(conf_logit[1,1], conf_logit[2,1], conf_probit[1,1], conf_probit[2,1]),
+  Prédit_1 = c(conf_logit[1,2], conf_logit[2,2], conf_probit[1,2], conf_probit[2,2])
+)
+
+kable(conf_df, format = "latex", booktabs = TRUE,
+      caption = "Matrices de confusion (seuil = 0.5)",
+      col.names = c("Modèle", "Observé", "Prédit 0", "Prédit 1")) %>%
+  kableExtra::kable_styling(latex_options = c("hold_position"))
+```
+
+Au seuil de 0,5, le modèle Logit classe correctement `r round(accuracy_logit * 100, 1)` % des observations et le Probit `r round(accuracy_probit * 100, 1)` %. Ces taux sont élevés mais doivent être nuancés : le modèle identifie bien les non-défauts (forte spécificité), mais détecte moins efficacement les défauts. En effet, avec le Logit, seuls `r conf_logit[2,2]` défauts sur `r sum(conf_logit[2,])` sont correctement identifiés, soit une sensibilité d'environ `r round(conf_logit[2,2]/sum(conf_logit[2,])*100, 1)` %. Cela s'explique par le déséquilibre de l'échantillon et le choix du seuil à 0,5 qui n'est pas forcément optimal.
+
+### Courbe ROC et AUC
+
+```{r roc, echo=FALSE, fig.cap="Courbes ROC des modèles Logit et Probit", fig.height=5}
+roc_logit  <- roc(credit$defaut_paiement_mois_suivant, credit$prob_logit)
+roc_probit <- roc(credit$defaut_paiement_mois_suivant, credit$prob_probit)
+
+plot(roc_logit, col = "navyblue", lwd = 2, 
+     main = "Courbes ROC : Logit vs Probit")
+plot(roc_probit, col = "darkseagreen3", lwd = 2, add = TRUE)
+legend("bottomright", 
+       legend = c(paste0("Logit (AUC = ", round(auc(roc_logit), 4), ")"),
+                  paste0("Probit (AUC = ", round(auc(roc_probit), 4), ")")),
+       col = c("navyblue", "darkseagreen3"), lwd = 2, bty = "n")
+```
+
+```{r perf-table, echo=FALSE, results='asis'}
+coords_logit  <- coords(roc_logit, "best", best.method = "youden")
+coords_probit <- coords(roc_probit, "best", best.method = "youden")
+
+perf_table <- data.frame(
+  Modèle = c("Logit", "Probit"),
+  AUC = c(round(auc(roc_logit), 4), round(auc(roc_probit), 4)),
+  Seuil_optimal = c(round(coords_logit$threshold, 4), 
+                     round(coords_probit$threshold, 4)),
+  Sensibilité = c(round(coords_logit$sensitivity, 4), 
+                   round(coords_probit$sensitivity, 4)),
+  Spécificité = c(round(coords_logit$specificity, 4), 
+                   round(coords_probit$specificity, 4)),
+  Accuracy = c(paste0(round(accuracy_logit * 100, 2), " %"), 
+               paste0(round(accuracy_probit * 100, 2), " %"))
+)
+
+kable(perf_table, format = "latex", booktabs = TRUE,
+      caption = "Récapitulatif des performances des modèles",
+      col.names = c("Modèle", "AUC", "Seuil optimal", 
+                     "Sensibilité", "Spécificité", "Accuracy")) %>%
+  kableExtra::kable_styling(latex_options = c("hold_position"))
+```
+
+Les courbes ROC des deux modèles sont quasi superposées, ce qui confirme leur équivalence en termes de pouvoir discriminant. L'AUC du modèle Logit s'élève à `r round(auc(roc_logit), 4)` contre `r round(auc(roc_probit), 4)` pour le Probit. Ces valeurs, situées autour de 0,72, indiquent une capacité de discrimination acceptable mais modérée : le modèle fait nettement mieux qu'un classement aléatoire (AUC = 0,5) mais reste en-deçà d'un modèle à forte valeur prédictive (AUC > 0,80).
+
+Le seuil optimal de Youden, qui maximise la somme de la sensibilité et de la spécificité, se situe autour de 0,26 pour les deux modèles, soit bien en-dessous du seuil par défaut de 0,5. Ce résultat est logique compte tenu du déséquilibre de la variable cible : abaisser le seuil permet de mieux détecter les défauts au prix d'un taux de faux positifs plus élevé.
+
+\newpage
+
+### Tests de significativité globale
+
+```{r tests, echo=FALSE}
+modele_nul <- glm(defaut_paiement_mois_suivant ~ 1,
+                  data = credit %>% select(-ends_with("_label")),
+                  family = binomial(link = "logit"))
+
+lr_stat <- -2 * (logLik(modele_nul) - logLik(modele_logit))
+lr_pval <- pchisq(as.numeric(lr_stat), 
+                   df = length(coef(modele_logit)) - 1, 
+                   lower.tail = FALSE)
+```
+
+```{r tests-table, echo=FALSE, results='asis'}
+tests_df <- data.frame(
+  Critère = c("Statistique LR", "Degrés de liberté", "p-value",
+              "AIC Logit", "AIC Probit", "BIC Logit", "BIC Probit"),
+  Valeur = c(round(as.numeric(lr_stat), 2),
+             length(coef(modele_logit)) - 1,
+             "< 2.2e-16",
+             round(AIC(modele_logit), 2),
+             round(AIC(modele_probit), 2),
+             round(BIC(modele_logit), 2),
+             round(BIC(modele_probit), 2))
+)
+
+kable(tests_df, format = "latex", booktabs = TRUE,
+      caption = "Tests de significativité et critères d'information",
+      col.names = c("Critère", "Valeur")) %>%
+  kableExtra::kable_styling(latex_options = c("hold_position"))
+```
+
+Le test du rapport de vraisemblance rejette très nettement l'hypothèse nulle selon laquelle toutes les variables explicatives auraient un effet nul ($LR = `r round(as.numeric(lr_stat), 2)`$, $p < 2{,}2 \times 10^{-16}$). Les variables incluses dans le modèle apportent donc une information significative pour prédire le défaut de paiement.
+
+Les critères d'information confirment la légère supériorité du modèle Logit : l'AIC du Logit (`r round(AIC(modele_logit), 0)`) est inférieur à celui du Probit (`r round(AIC(modele_probit), 0)`), de même que le BIC. Le modèle Logit sera donc privilégié pour les conclusions de cette étude.
+
+\vspace{15pt}
+
+# \underline{Conclusion générale :}
+
+Ce rapport avait pour objectif de modéliser la probabilité de défaut de paiement des clients titulaires d'une carte de crédit à partir de leurs caractéristiques sociodémographiques et de leur historique de remboursement. Pour ce faire, deux modèles de régression sur variable binaire ont été estimés et comparés : le modèle Logit et le modèle Probit.
+
+\vspace{10pt}
+
+L'analyse exploratoire a d'abord permis de mettre en évidence les principaux facteurs associés au défaut de paiement. L'historique de retard constitue de loin le prédicteur le plus discriminant : les clients présentant un retard de 2 mois ou plus en septembre 2023 affichent un taux de défaut supérieur à 60 %. Les variables sociodémographiques jouent également un rôle significatif, bien que plus modeste : les hommes, les clients moins diplômés et les célibataires présentent un risque de défaut plus élevé.
+
+\vspace{10pt}
+
+La procédure de sélection de variables par stepwise a permis de réduire le nombre de covariables de 23 à 18 en éliminant les variables redondantes, tout en améliorant légèrement l'AIC du modèle. Les résultats d'estimation confirment la cohérence entre les modèles Logit et Probit, tant au niveau des signes et de la significativité des coefficients que des effets marginaux. Le retard de paiement en septembre 2023 se distingue par un effet marginal moyen de 8,6 points de pourcentage, loin devant les autres variables.
+
+\vspace{10pt}
+
+En termes de performances prédictives, les deux modèles obtiennent des résultats très proches, avec une AUC d'environ 0,72 et un taux de bonne classification d'environ 81 %. Le modèle Logit présente toutefois une légère supériorité selon les critères AIC et BIC, ce qui justifie sa préférence. Ces performances, bien qu'acceptables, restent modérées et pourraient être améliorées par l'intégration de variables supplémentaires (revenus, historique de crédit plus long) ou par le recours à des méthodes d'apprentissage automatique (forêts aléatoires, gradient boosting), au prix d'une moindre interprétabilité.
+
+\vspace{10pt}
+
+Enfin, ce travail illustre l'intérêt des outils de scoring de crédit pour objectiver les décisions d'octroi et contribuer à une meilleure gestion du risque de crédit au sein des établissements financiers.
+
+\newpage
+
+# \underline{Bibliographie :}
+<div id="refs"></div>
+
+\newpage 
+
+# \underline{Annexe - Vérification de la robustesse des codes :}
+ 
+Afin de vérifier la robustesse des résultats obtenus sous R, nous répliquons les estimations des modèles Logit et Probit sous Python. Nous utilisons les mêmes variables retenues par la procédure de sélection stepwise et comparons les performances prédictives (AUC, taux de bonne classification) ainsi que les critères d'information (AIC, BIC). L'objectif est de s'assurer que les résultats ne dépendent pas du logiciel utilisé.
+ 
+## Vérification avec Python :
+ 
+```{r, echo=FALSE}
+library(reticulate)
+use_python("C:/Users/quent/Anaconda3/python.exe", required = TRUE)
+```
+
+```{python, echo=TRUE, results='markup'}
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm
+from sklearn.metrics import roc_auc_score, accuracy_score
+from scipy.stats import chi2
+import warnings
+warnings.filterwarnings('ignore')
+
+# Chargement des donnees
+credit = pd.read_excel("credit_defaut.xlsx")
+
+# Variables retenues par la selection stepwise
+vars_sel = [
+    'plafond_credit_eur', 'sexe', 'niveau_education', 'situation_familiale',
+    'age', 'retard_paiement_sep_2023', 'retard_paiement_aou_2023',
+    'retard_paiement_juil_2023', 'retard_paiement_mai_2023',
+    'encours_carte_sep_2023_eur', 'encours_carte_aou_2023_eur',
+    'encours_carte_mai_2023_eur', 'montant_rembourse_sep_2023_eur',
+    'montant_rembourse_aou_2023_eur', 'montant_rembourse_juil_2023_eur',
+    'montant_rembourse_juin_2023_eur', 'montant_rembourse_mai_2023_eur',
+    'montant_rembourse_avr_2023_eur'
+]
+
+X = sm.add_constant(credit[vars_sel])
+y = credit['defaut_paiement_mois_suivant']
+
+# Estimation des modeles
+logit_py = sm.Logit(y, X).fit(disp=0)
+probit_py = sm.Probit(y, X).fit(disp=0)
+
+# Performances
+auc_l = roc_auc_score(y, logit_py.predict(X))
+auc_p = roc_auc_score(y, probit_py.predict(X))
+acc_l = accuracy_score(y, (logit_py.predict(X) > 0.5).astype(int))
+acc_p = accuracy_score(y, (probit_py.predict(X) > 0.5).astype(int))
+
+# Test LR
+logit_nul = sm.Logit(y, np.ones(len(y))).fit(disp=0)
+lr_stat = -2 * (logit_nul.llf - logit_py.llf)
+
+print("Recapitulatif des performances (Python)")
+print("                      Logit          Probit")
+print("AUC              " + str(round(auc_l, 4)) + "          " + str(round(auc_p, 4)))
+print("Accuracy          " + str(round(acc_l*100, 2)) + "%         " + str(round(acc_p*100, 2)) + "%")
+print("AIC              " + str(round(logit_py.aic, 2)) + "      " + str(round(probit_py.aic, 2)))
+print("BIC              " + str(round(logit_py.bic, 2)) + "      " + str(round(probit_py.bic, 2)))
+print("")
+print("Test du rapport de vraisemblance (Logit)")
+print("Statistique LR : " + str(round(lr_stat, 2)))
+print("Degres de liberte : " + str(len(vars_sel)))
+print("p-value : < 2.2e-16")
+```
+
+Les résultats obtenus sous Python sont très proches de ceux de R. Les AUC, les taux de bonne classification, les critères AIC/BIC et la statistique du test du rapport de vraisemblance sont quasiment identiques, confirmant la robustesse des estimations.
+
+ 
+
+\medskip
+
+La convergence des résultats entre les deux logiciels (R, Python) confirme la robustesse des estimations et valide les conclusions de cette étude.
+
+

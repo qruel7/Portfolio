@@ -1,0 +1,201 @@
+\documentclass{article}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usepackage{animate}
+\usepackage{geometry}
+\usepackage{media9}
+
+\geometry{landscape,a2paper, margin=0pt}
+
+\newcommand{\jantes}{
+	\draw [thick,black] (0,0.23)--(0,-0.23);
+	\draw [thick,black] (-0.23,0)--(0.23,0);
+	\draw [thick,black] (-0.15,0.15)--(0.15,-0.15);
+	\draw [thick,black] (0.15,0.15)--(-0.15,-0.15);
+	\draw [thick] (0,0) circle(0.07);}
+
+\newcommand{\jantesbis}{
+	\draw [thick,black] (2,0.23)--(2,-0.23);
+	\draw [thick,black] (1.77,0)--(2.23,0);
+	\draw [thick,black] (1.85,0.15)--(2.15,-0.15);
+	\draw [thick,black] (1.85,-0.15)--(2.15,0.15);
+	\draw [thick] (2,0) circle(0.07);}
+
+
+\begin{document}
+	
+	\begin{animateinline}[controls, label=voiture, autoplay, loop]{100}
+		\multiframe{360}{i=0+1}{
+			
+			\begin{tikzpicture}
+				
+				
+				\begin{scope}
+					
+					\draw [fill=black!40] (-5,2.5)--(42,2.5)--(42,-0.75)--(-5,-0.75);
+					\draw [fill=white] (-5,-0.64)--(42,-0.64)--(42,-0.48)--(-5,-0.48);
+					\draw [fill=white] (-5,2.4)--(42,2.4)--(42,2.25)--(-5,2.25);
+					
+					\foreach \x in {-4,-1,2,5,8,11,14,17,20,23,26,29,32,35,38,41}
+					{\draw [fill=white] (\x,0.84) rectangle (1+\x,1);}
+
+					%création des dimension de la voiture
+					\coordinate (A) at (-0.3+0.1*\i,0);
+					\coordinate (B) at (-0.3+0.1*\i,0.5);
+					\coordinate(C) at (0+0.1*\i,1);
+					\coordinate(D) at (1.25+0.1*\i,1);
+					\coordinate(E) at (1.5+0.1*\i,0.6);
+					\coordinate(F) at (2.37+0.1*\i,0.56);
+					\coordinate(G) at (2.4+0.1*\i,0.53);
+					\coordinate(I) at (2.4+0.1*\i,0.2);
+					\coordinate(K) at (2.3+0.1*\i,0);
+					
+					%remplissage de la voiture
+					\draw [black] [fill=red!70] (A)--(B)--(C)--(D)--(E)--(F)--(G)--(I)--(K);
+					
+					%contour gris autour des roues (ombres sous la voiture), la couleur passe par dessus le rouge de la voiture
+					\draw [fill=black!60] (0.3+0.1*\i,0) arc (3:180:0.3);
+					\draw [fill=black!60] (2.3+0.1*\i,0) arc (3:180:0.3);
+					
+					%les roues
+					\draw [black] [fill=black] (0+0.1*\i,0) circle(0.24);
+					\draw [black] [fill=black] (2+0.1*\i,0) circle(0.24);
+					\draw [black] [fill=black!30] (0+0.1*\i,0) circle(0.2);
+					\draw [black] [fill=black!30] (2+0.1*\i,0) circle(0.2);
+					
+					%armature des fenêtres
+					\coordinate(J) at (0+0.1*\i,0.9);
+					\coordinate(L) at (1.26+0.1*\i,0.9);
+					\coordinate(M) at (1.46+0.1*\i,0.6);
+					\coordinate(N) at (1.46+0.1*\i,0.5);
+					\coordinate(O) at (-0.25+0.1*\i,0.5);
+					
+					%remplissage des fenêtres
+					\draw [black] [fill=cyan!30] (J)--(L)--(M)--(N)--(O)--cycle;
+					
+					%portières et poignées
+					\draw [black] (J)--(0+0.1*\i,0.28);
+					\draw [black] (0.65+0.1*\i,0)--(0.65+0.1*\i,0.9);
+					\draw [black] (M)--(1.46+0.1*\i,0);
+					\draw [black] (0.6+0.1*\i,0.4)--(0.55+0.1*\i,0.4);
+					\draw [black] (0.7+0.1*\i,0.4)--(0.75+0.1*\i,0.4);
+					\draw [black] (L)--(1.26+0.1*\i,0.5);
+					
+					%phare avant
+					\draw [black] [fill=yellow](2.38+0.1*\i,0.25)--(2.38+0.1*\i,0.45)--(2.44+0.1*\i,0.45)--(2.44+0.1*\i,0.25)--cycle;
+					
+					%éclairage des phares avants
+					\draw [yellow!25] [fill=yellow, opacity=0.3](2.44+0.1*\i,0.45)--(5+0.1*\i,0.6)--(5+0.1*\i,0.1)--(2.44+0.1*\i,0.25);
+					
+					%tentative de faire des jantes mdrr		
+					
+					
+					
+					%phare arrière
+					\draw [black] [fill=red](-0.34+0.1*\i,0.23) rectangle(-0.3+0.1*\i,0.35);
+					
+					%éclairage phares arrières
+					\draw [red!25] [fill=red!25] (-0.34+0.1*\i,0.23)--(-0.7+0.1*\i,0.15)--(-0.7+0.1*\i,0.4)--(-0.34+0.1*\i,0.35);
+					
+					%antenne
+					\draw [black] (0.2+0.1*\i,1)--(0.1+0.1*\i,1.2);
+					
+					%pare choc côté + qlq détails
+					\draw [black] [fill=black!70](0.25+0.1*\i,0)--(0.29+0.1*\i,-0.05)--(1.71+0.1*\i,-0.05)--(1.75+0.1*\i,0)--cycle;
+					\draw [black] (-0.3+0.1*\i,-0.01)--(-0.25+0.1*\i,0);
+					\draw [black] (2.24+0.1*\i,0)--(K);
+					
+					%pare choc avant
+					\draw [black] [fill=black!70] (2.25+0.1*\i,0)--(2.3+0.1*\i,-0.02)--(2.42+0.1*\i,-0.02)--(2.4+0.1*\i,0.01)--(2.38+0.1*\i,0.01)--(2.38+0.1*\i,0.15)--cycle;
+					
+					%pot d'échappement
+					\draw [black] [fill=black!75](-0.37+0.1*\i,0.1) rectangle(-0.3+0.1*\i,0.05);
+					
+					%coffre
+					\draw [black] (O)--(-0.26+0.1*\i,0.21)--(-0.3+0.1*\i,0.17);
+					\draw[black] (J)--(-0.05+0.1*\i,0.92);
+					
+					%Pilier lampadaire
+					\draw[fill=black!20] (-2.1,2.6)--(-2.05,4.5)--(-1.95,4.5)--(-1.9,2.6)--cycle;
+					\draw[fill=black!20] (-2.1+18,2.6)--(-2.05+18,4.5)--(-1.95+18,4.5)--(-1.9+18,2.6)--cycle;
+					\draw[fill=black!20] (-2.1+36,2.6)--(-2.05+36,4.5)--(-1.95+36,4.5)--(-1.9+36,2.6)--cycle;
+					
+					%Lumières des lampadaires
+					\draw [fill=orange, opacity=0.25] (-2.04,4.3)--(-1.96,4.3)--(1.8,1)--(1.4,0.7)--(-2,0.4)--(-5,0.7)--(-5,1.7)--cycle;
+					\draw [fill=orange, opacity=0.25] (6.96+9,4.3)--(7.04+9,4.3)--(10.8+9,1)--(10.4+9,0.7)--(7+9,0.4)--(3.6+9,0.7)--(3.2+9,1)--cycle;
+					\draw [fill=orange, opacity=0.25] (6.96+27,4.3)--(7.04+27,4.3)--(10.8+27,1)--(10.4+27,0.7)--(7+27,0.4)--(3.6+27,0.7)--(3.2+27,1)--cycle;
+					
+					%Haut du lampadaire
+					\draw[fill=black!30] (-2.05,4.5)--(-1.95,4.5)--(-1.87,4)--(-2.13,4)--cycle;
+					\draw[fill=black!30] (-2.05+18,4.5)--(-1.95+18,4.5)--(-1.87+18,4)--(-2.13+18,4)--cycle;
+					\draw[fill=black!30] (-2.05+36,4.5)--(-1.95+36,4.5)--(-1.87+36,4)--(-2.13+36,4)--cycle;
+					
+					%Arbres
+					\draw [fill=brown] (4,2.6+0.08) rectangle (4.3,3.1);
+					\draw [fill=green] (3.15,3.1)--(4.15,4.4)--(5.15,3.1)--cycle;
+					\draw [fill=green] (3.45,3.7)--(4.15,4.8)--(4.85,3.7)--cycle;
+					\draw [fill=green] (3.8,4.4)--(4.15,5.3-0.1)--(4.5,4.4)--cycle;
+					
+					\draw [fill=brown] (4+16,2.6+0.05) rectangle (4.3+16,3.1+0.1);
+					\draw [fill=green] (3.15+16,3.1+0.1)--(4.15+16,4.4+0.2)--(5.15+16,3.1+0.1)--cycle;
+					\draw [fill=green] (3.45+16,3.7+0.2)--(4.15+16,4.8+0.2)--(4.85+16,3.7+0.2)--cycle;
+					\draw [fill=green] (3.8+16,4.4+0.2)--(4.15+16,5.3+0.2)--(4.5+16,4.4+0.2)--cycle;
+					
+					\draw [fill=brown] (4+22,2.6) rectangle (4.3+22,3.1);
+					\draw [fill=green] (3.15+22,3.1)--(4.15+22,4.4)--(5.15+22,3.1)--cycle;
+					\draw [fill=green] (3.45+22,3.7)--(4.15+22,4.8)--(4.85+22,3.7)--cycle;
+					\draw [fill=green] (3.8+22,4.4)--(4.15+22,5.3)--(4.5+22,4.4)--cycle;
+					
+					
+					%Maison 
+					\draw [fill=yellow!30!white] (6,2.8) rectangle (10,5);
+					\draw [fill=red!50!brown] (5.8,4.9)--(10.2,4.9)--(8,7)--cycle;
+					\draw [fill=black!30!brown] (6.5,2.8)--(6.5,4)--(7.1,4)--(7.1,2.8);
+					\draw [fill=cyan!30] (7.9,4.2)--(9.4,4.2)--(9.4,3.2)--(7.9,3.2)--cycle;
+					\draw [thick] (8.65,4.2)--(8.65,3.2);
+					\draw [fill=red!40!gray] (8.6,6)--(8.6,6.7)--(9,6.7)--(9,6);
+					\draw [fill=yellow] (6.95,3.3) circle(0.1);
+					
+					%Panneau vitesse
+					\draw[fill=gray!50] (40,2.6) rectangle (40.15,3.7);
+					\draw[fill=white] (40.075,3.7) circle(0.43);
+					\draw[fill=red] (40.075,3.7) circle(0.4);
+					\draw[fill=white] (40.075,3.7) circle(0.32);
+					\node at (40.075,3.7) [draw=none, font=\fontsize{12}{12}\sffamily\bfseries, text=black] {80};
+					
+					%Deuxième route
+					\draw [fill=black!40] (22,-0.75)--(24.8,-0.75)--(30,-4)--(42,-4)--(42,-5.5)--(29,-5.5)--cycle;
+					\draw[thick] (24,-2)--(24.2,-1.9)--(24.4,-2);
+					\draw[thick] (35,-5)--(35.2,-4.9)--(35.4,-5);
+					\draw[thick] (39.5,-4.5)--(39.7,-4.4)--(39.9,-4.5);
+					\draw [fill=gray!10] (21.3,-1.2)--(21.3,0.2)--(21.5,0.4)--(21.7,0.2)--(21.7,-1.2)--cycle;
+					\draw [fill=red] (21.3,0.1)--(21.7,0.1)--(21.7,-0.1)--(21.3,-0.1)--cycle;
+					
+					
+				\end{scope}
+				
+				\begin{scope}[shift={(0.1*\i, 0)}, rotate=-\i]
+					\jantes
+				\end{scope}
+				
+				\begin{scope}[shift={(0.1*\i,0)}, rotate around={-\i:(2,0)}]
+					\jantesbis
+				\end{scope}
+				
+				
+				
+			\end{tikzpicture}
+		}
+
+	\end{animateinline}
+	
+	\mediabutton[
+	jsaction={
+		if(anim[‘voiture’].isPlaying) {
+			anim[‘voiture’].pause();
+		} else {
+			anim[‘voiture’].playFwd();
+		}
+	}
+	]{\fbox{Play/Pause}}
+\end{document}

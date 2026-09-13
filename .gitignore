@@ -1,5 +1,9 @@
-# secrets
+# ESA Chatbot
 .env
+chroma_db/
+all_chunks.json
+google_credentials.json
+
 
 # R
 .Rproj.user/

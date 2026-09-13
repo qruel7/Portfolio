@@ -1,6 +1,6 @@
 # Portfolio — Quentin Ruel
 
-Étudiant en Master 2 ESA (Économétrie et Statistique Appliquées) à l'Université d'Orléans. Ce dépôt rassemble mes projets académiques de la Licence au Master, en économétrie, statistique appliquée et data science.
+Étudiant en Master 2 ESA (Économétrie, Statistiques Appliquées) à l'Université d'Orléans. Ce dépôt rassemble mes projets académiques de la Licence au Master, en économétrie, statistique appliquée et data science.
 
 ## Compétences techniques
 

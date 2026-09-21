@@ -32,6 +32,7 @@
 | [R_PrevisionTourisme](M1/R_PrevisionTourisme) | Prévision des arrivées touristiques par méthodes de décomposition, avec traitement de la rupture COVID |
 | [R_ShinyApp](M1/R_ShinyApp) | Application R Shiny de scoring bancaire, avec estimation de modèle et prédiction en temps réel |
 | [SAS_AttractiviteIUT](M1/SAS_AttractiviteIUT) | Analyse de l'attractivité des IUT français à partir des données Parcoursup |
+| [SAS_DynamiquesAlternances](M1/SAS_DynamiquesAlternances) | Étude des dynamiques des alternances en région Centre-Val de Loire |
 
 ## Structure
 

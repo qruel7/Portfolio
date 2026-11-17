@@ -1,0 +1,13 @@
+# Agent 1 — consigne d'extraction par section — VERSION v2
+# Variables : {id_section}, {titre_section}, {debut_section}, {fin_section}, {prefixe_id}
+
+TÂCHE : EXTRACTION
+
+Zone à traiter : {id_section} ({titre_section}), et seulement cette zone.
+
+Elle commence au passage :
+« {debut_section} »
+et se termine juste avant le passage :
+« {fin_section} »
+
+Numérote les lignes {prefixe_id}-001, {prefixe_id}-002, etc.

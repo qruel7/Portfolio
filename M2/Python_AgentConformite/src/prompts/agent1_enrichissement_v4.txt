@@ -1,0 +1,8 @@
+# Agent 1 — consigne d'enrichissement — VERSION v4 (identique à la v3 ; seul le système change)
+# Variables : {nb}, {exigences} (une exigence JSON par ligne : id, ref, obl)
+
+TÂCHE : ENRICHISSEMENT
+
+Voici {nb} exigences déjà extraites du document. Rédige `ctrl` et `test` pour chacune, en reprenant exactement son `id`.
+
+{exigences}

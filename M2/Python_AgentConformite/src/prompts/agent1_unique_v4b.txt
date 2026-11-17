@@ -1,0 +1,8 @@
+# Agent 1 — consigne d'extraction en passage unique — VERSION v4b (identique à la v3)
+# Variables : {prefixe_id}
+
+TÂCHE : EXTRACTION
+
+Zone à traiter : l'ensemble du document, du début à la fin.
+
+Numérote les lignes {prefixe_id}-001, {prefixe_id}-002, etc.

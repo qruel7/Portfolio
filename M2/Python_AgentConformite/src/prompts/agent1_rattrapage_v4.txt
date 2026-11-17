@@ -1,0 +1,12 @@
+# Agent 1 — consigne de rattrapage — VERSION v4 (identique à la v3 ; seul le système change)
+# Variables : {liste_paragraphes}, {prefixe_id}
+# Utilisée APRÈS une extraction : une règle déterministe (src/couverture.py) a repéré des
+# paragraphes à tournure prescriptive restés sans aucune ligne. Le préfixe est inchangé.
+
+TÂCHE : EXTRACTION
+
+Zone à traiter : uniquement les paragraphes ci-dessous, qui n'ont encore donné aucune ligne. Relis chacun dans le document, en entier. Produis les lignes d'exigence qu'il contient, selon les règles habituelles. S'il ne contient aucune exigence pour l'entité (simple renvoi, exemple illustratif, définition, modification d'un autre texte), n'en produis aucune : une liste vide est une réponse valable.
+
+{liste_paragraphes}
+
+Numérote les lignes {prefixe_id}-001, {prefixe_id}-002, etc.

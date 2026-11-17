@@ -1,0 +1,8 @@
+# Agent 2 — consigne d'appariement — VERSION v1
+# Variables : {nb}, {lignes_reference}
+
+TÂCHE : APPARIEMENT
+
+Voici {nb} ligne(s) du référentiel de référence. Rends un verdict pour chacune, en reprenant exactement son id_ref.
+
+{lignes_reference}

@@ -1,0 +1,216 @@
+{
+ "v3:section": {
+  "k": 3,
+  "fichiers": [
+   "section-ce42aa5e-v3-s-complet-r1-v3-1znSfoFo.jsonl",
+   "section-ce42aa5e-v3-s-complet-r2-v3-1znSfoFo.jsonl",
+   "section-ce42aa5e-v3-s-complet-r3-v3-1znSfoFo.jsonl"
+  ],
+  "lignes": [
+   42,
+   48,
+   49
+  ],
+  "taux_hors_zone": [
+   0.047619047619047616,
+   0.02127659574468085,
+   0.02040816326530612
+  ],
+  "exemples_hors_zone": [
+   [
+    "S03-015",
+    "S08-006"
+   ],
+   [
+    "S03-017"
+   ],
+   [
+    "S05-009"
+   ]
+  ],
+  "refs_exactes": [
+   0.2619047619047619,
+   0.34782608695652173,
+   0.40816326530612246
+  ],
+  "refs_trop_larges": [
+   28,
+   27,
+   26
+  ],
+  "jaccard_paragraphes": 0.7537308370641704,
+  "par_section": {
+   "S02": [
+    13,
+    14,
+    14
+   ],
+   "S03": [
+    15,
+    20,
+    17
+   ],
+   "S05": [
+    6,
+    5,
+    9
+   ],
+   "S06": [
+    2,
+    4,
+    5
+   ],
+   "S08": [
+    6,
+    5,
+    4
+   ]
+  }
+ },
+ "v4:section": {
+  "k": 3,
+  "fichiers": [
+   "section-ce42aa5e-v4-s-complet-r1-v4-1qi4nPmj.jsonl",
+   "section-ce42aa5e-v4-s-complet-r2-v4-1qi4nPmj.jsonl",
+   "section-ce42aa5e-v4-s-complet-r3-v4-1qi4nPmj.jsonl"
+  ],
+  "lignes": [
+   46,
+   39,
+   37
+  ],
+  "taux_hors_zone": [
+   0.30434782608695654,
+   0.0,
+   0.35135135135135137
+  ],
+  "exemples_hors_zone": [
+   [
+    "S03-002",
+    "S03-003",
+    "S03-004",
+    "S03-005",
+    "S03-006",
+    "S03-007",
+    "S03-008",
+    "S03-009",
+    "S03-010",
+    "S03-011"
+   ],
+   [],
+   [
+    "S03-002",
+    "S03-003",
+    "S03-004",
+    "S03-005",
+    "S03-006",
+    "S03-007",
+    "S03-008",
+    "S03-009",
+    "S03-010",
+    "S03-011"
+   ]
+  ],
+  "refs_exactes": [
+   0.8913043478260869,
+   0.9487179487179487,
+   0.8108108108108109
+  ],
+  "refs_trop_larges": [
+   0,
+   0,
+   0
+  ],
+  "jaccard_paragraphes": 0.6334586466165414,
+  "par_section": {
+   "S01": [
+    3,
+    3,
+    3
+   ],
+   "S02": [
+    11,
+    13,
+    14
+   ],
+   "S03": [
+    27,
+    16,
+    14
+   ],
+   "S06": [
+    3,
+    4,
+    2
+   ],
+   "S07": [
+    2,
+    3,
+    4
+   ]
+  }
+ },
+ "v4a:section": {
+  "k": 3,
+  "fichiers": [
+   "section-ce42aa5e-v4a-s-complet-r1-v4a-zgzwgXJC.jsonl",
+   "section-ce42aa5e-v4a-s-complet-r2-v4a-zgzwgXJC.jsonl",
+   "section-ce42aa5e-v4a-s-complet-r3-v4a-zgzwgXJC.jsonl"
+  ],
+  "lignes": [
+   34,
+   39,
+   28
+  ],
+  "taux_hors_zone": [
+   0.0,
+   0.02564102564102564,
+   0.0
+  ],
+  "exemples_hors_zone": [
+   [],
+   [
+    "S07-001"
+   ],
+   []
+  ],
+  "refs_exactes": [
+   0.8181818181818182,
+   0.9230769230769231,
+   0.8571428571428571
+  ],
+  "refs_trop_larges": [
+   0,
+   0,
+   0
+  ],
+  "jaccard_paragraphes": 0.7671957671957671,
+  "par_section": {
+   "S01": [
+    3,
+    3,
+    0
+   ],
+   "S02": [
+    14,
+    13,
+    13
+   ],
+   "S03": [
+    15,
+    16,
+    14
+   ],
+   "S05": [
+    0,
+    2,
+    0
+   ],
+   "S07": [
+    2,
+    5,
+    1
+   ]
+  }
+ }
+}

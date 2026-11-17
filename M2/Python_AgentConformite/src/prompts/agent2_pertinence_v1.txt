@@ -1,0 +1,7 @@
+# Agent 2 — consigne de pertinence — VERSION v1
+# Variables : {nb}, {ids}
+
+TÂCHE : PERTINENCE
+
+Juge la pertinence de ces {nb} lignes du référentiel de l'IA, et d'elles seules :
+{ids}

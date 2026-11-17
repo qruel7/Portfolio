@@ -1,0 +1,18 @@
+# Agent 1 — consigne d'enrichissement — VERSION v4b (v3 + grille de contrôle interne)
+# Variables : {nb}, {exigences} (une exigence JSON par ligne : id, ref, obl)
+
+TÂCHE : ENRICHISSEMENT
+
+Voici {nb} exigences déjà extraites du document. Rédige `ctrl` et `test` pour chacune, en reprenant exactement son `id`.
+
+{exigences}
+
+Pour cette tâche, rédige `ctrl` et `test` selon les précisions suivantes, qui complètent les consignes générales :
+- `ctrl` : le contrôle clé que l'entité doit avoir en place, en deux à trois phrases. Parcours la grille suivante et retiens les éléments PERTINENTS pour cette exigence (pas tous mécaniquement) :
+  - la procédure écrite et son responsable (qui fait quoi, sur quel périmètre) ;
+  - les données d'entrée utilisées et le contrôle de leur exactitude et de leur exhaustivité ;
+  - la méthode ou le jugement appliqué, et sa justification documentée ;
+  - la revue ou la validation indépendante (deuxième ligne de maîtrise, fonction de validation, audit interne) ;
+  - la gouvernance : instance qui approuve, fréquence de revue, remontée des écarts ;
+  - la trace conservée (preuve, piste d'audit).
+- `test` : le test de conformité qu'un auditeur appliquerait, en deux à trois phrases : quoi examiner, quel échantillon ou quelle donnée, quel critère de réussite, quelles anomalies typiques rechercher. Il porte sur au moins deux éléments de la grille retenus dans `ctrl`.

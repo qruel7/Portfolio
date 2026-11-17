@@ -1,0 +1,8 @@
+# Thème de l'application (versionné). NE JAMAIS mettre de secret ici : les secrets vont dans
+# .streamlit/secrets.toml, qui reste ignoré par git (l'application déployée n'en a pas besoin).
+[theme]
+base = "dark"
+primaryColor = "#5B9BF3"
+backgroundColor = "#0F1724"
+secondaryBackgroundColor = "#1A2638"
+textColor = "#E6EAF0"

@@ -1,0 +1,6 @@
+# Agent 1 — consigne de passage unique — VERSION v1
+# Variables : {prefixe_id}
+
+Traite l'ensemble du document, du début à la fin.
+
+Produis toutes les exigences du document. Numérote les lignes {prefixe_id}-001, {prefixe_id}-002, etc.

@@ -1,0 +1,34 @@
+[
+ {
+  "version": "v3",
+  "lignes": 533,
+  "citations_valides": 0.9793621013133208,
+  "hallucination": 0.020637898686679174,
+  "refs_exactes": 1.0,
+  "refs_trop_larges": 0,
+  "cout_agent1": 4.789072,
+  "couverture_stricte": 0.0,
+  "couverture_large": 0.9411764705882353,
+  "qualite": 0.37745098039215685,
+  "supp_pertinentes": 372,
+  "supp_faibles": 146,
+  "supp_non_pertinentes": 2,
+  "cout_agent2": 1.422592
+ },
+ {
+  "version": "v4b",
+  "lignes": 574,
+  "citations_valides": 0.9930313588850174,
+  "hallucination": 0.006968641114982578,
+  "refs_exactes": 1.0,
+  "refs_trop_larges": 0,
+  "cout_agent1": 4.832332,
+  "couverture_stricte": 0.0,
+  "couverture_large": 1.0,
+  "qualite": 0.36764705882352944,
+  "supp_pertinentes": 443,
+  "supp_faibles": 115,
+  "supp_non_pertinentes": 0,
+  "cout_agent2": 1.610002
+ }
+]
